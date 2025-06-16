@@ -1,0 +1,11 @@
+# Config file
+config.yaml
+
+# NodeJS
+node_modules
+dist
+
+# IDE stuff
+.idea
+.DS_Store
+.vscode
