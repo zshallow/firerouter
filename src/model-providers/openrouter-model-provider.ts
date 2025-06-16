@@ -2,9 +2,7 @@ import { ModelProvider } from "../interfaces/model-provider.js";
 import { z } from "zod/v4";
 import { FireChatCompletionRequest } from "../types/fire-chat-completion-request";
 import { FireChatCompletionResponse } from "../types/fire-chat-completion-response";
-import {
-	EventSourceParserStream,
-} from "eventsource-parser/stream";
+import { EventSourceParserStream } from "eventsource-parser/stream";
 
 type OpenRouterRequestContentTextPart = {
 	type: "text";

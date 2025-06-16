@@ -35,10 +35,6 @@ export class RandomModelProvider implements ModelProvider {
 		req: FireChatCompletionRequest,
 	): Promise<FireChatCompletionResponse> {
 		for (let i = 0; i < 100; i++) {
-			if (i > 100) {
-				throw "Failed to select an existing random model!";
-			}
-
 			const modelName = selectRandomOption(
 				this.weightedModels,
 			);
