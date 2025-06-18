@@ -34,6 +34,10 @@ modelProviders:
   gpt-4.1:
     type: "openrouter" # OpenRouter model
     modelName: "openai/gpt-4.1" # Its model name on OpenRouter
+  # This exposes a model named "gpt-4.1-two" in your client. It's the same as 4.1, but two.
+  gpt-4.1-two:
+    type: "openrouter" # OpenRouter model
+    modelName: "openai/gpt-4.1" # Its model name on OpenRouter
   qwen-3-32b:
     type: "genericoai" # Anything that largely resembles OAI
     url: "http://localhost:8000/v1/chat/completions" # e.g. your local llamacpp server. You NEED to still give him a fake made up key (or he'll cry)
