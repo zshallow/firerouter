@@ -63,6 +63,21 @@ export type OpenRouterModelProviderConfiguration = z.infer<
 	typeof OpenRouterModelProviderConfigurationSchema
 >;
 
+const GeminiModelProviderConfigurationSchema =
+	BaseModelProviderConfigurationSchema.extend({
+		type: z.literal("gemini"),
+		url: z
+			.string()
+			.default(
+				"https://generativelanguage.googleapis.com/v1beta/models",
+			),
+		modelName: z.string(),
+	});
+
+export type GeminiModelProviderConfiguration = z.infer<
+	typeof GeminiModelProviderConfigurationSchema
+>;
+
 const RandomModelProviderConfigurationSchema =
 	BaseModelProviderConfigurationSchema.extend({
 		type: z.literal("random"),
@@ -93,6 +108,7 @@ const ModelProviderConfigurationSchema = z.discriminatedUnion("type", [
 	GenericOAIModelProviderConfigurationSchema,
 	OpenRouterModelProviderConfigurationSchema,
 	RandomModelProviderConfigurationSchema,
+	GeminiModelProviderConfigurationSchema,
 ]);
 
 export type ModelProviderConfiguration = z.infer<

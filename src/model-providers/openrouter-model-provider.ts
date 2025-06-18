@@ -1,10 +1,10 @@
-import { GenericOAIModelProvider } from "./generic-oai-provider.js";
+import { GenericOAIModelProvider } from "./generic-oai-model-provider.js";
 import {
 	GenericOAIModelProviderConfiguration,
 	OpenRouterModelProviderConfiguration,
 } from "../config.js";
 
-export class OpenrouterModelProvider extends GenericOAIModelProvider {
+export class OpenRouterModelProvider extends GenericOAIModelProvider {
 	constructor(config: OpenRouterModelProviderConfiguration) {
 		console.log("Initializing a new OpenRouter model provider!");
 		const oaiConfiguration: GenericOAIModelProviderConfiguration = {

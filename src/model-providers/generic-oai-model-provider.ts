@@ -8,6 +8,9 @@ import { KeyProvider } from "../interfaces/key-provider.js";
 import { FireChatCompletionStreamingResponse } from "../types/fire-chat-completion-streaming-response.js";
 import { GenericOAIModelProviderConfiguration } from "../config.js";
 
+/**
+ * Funny supporting types.
+ */
 type GenericOAIRequestContentTextPart = {
 	type: "text";
 	text: string;
@@ -66,6 +69,10 @@ const GenericOAIStreamingResponseChunkSchema = z.looseObject({
 	object: z.literal("chat.completion.chunk"),
 	choices: z.array(GenericOAIStreamingResponseChoiceSchema).optional(),
 });
+
+/**
+ * Actual code.
+ */
 
 export class GenericOAIModelProvider implements ModelProvider {
 	keyProvider: UnionKeyProvider;
@@ -127,7 +134,7 @@ export class GenericOAIModelProvider implements ModelProvider {
 		const response = await fetch(this.config.url, {
 			method: "POST",
 			headers: {
-				ContentType: "application/json",
+				"Content-Type": "application/json",
 				Authorization: `Bearer ${key}`,
 			},
 			body: JSON.stringify(this.convertRequestBody(req)),
@@ -158,7 +165,7 @@ export class GenericOAIModelProvider implements ModelProvider {
 			{
 				method: "POST",
 				headers: {
-					ContentType: "application/json",
+					"Content-Type": "application/json",
 					Authorization: `Bearer ${key}`,
 				},
 				body: JSON.stringify(

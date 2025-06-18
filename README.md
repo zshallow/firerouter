@@ -1,7 +1,8 @@
 # FireRouter
 
 This is sort of a gimmick local reverse proxy for use with chat completion APIs. It consumes
-different apis (currently only other OpenAI-likes and OpenRouter) and exposes an OpenAI-like API.
+different apis (currently only other OpenAI-likes, OpenRouter and Gemini) and exposes a
+common OpenAI-like API.
 
 Look at this SillyTavern Custom OpenAI configuration and the Available Models list:
 
@@ -97,7 +98,8 @@ See the config.example.yaml for details.
 ## Running
 
 Git clone the project normally (like you did ST), install deps with `npm i`,
-build with `npm run build` and run with `npm run start`.
+build with `npm run build` and run with `npm run start`. Server listens by default
+on `http://127.0.0.1:3000/v1`.
 
 Remember to rebuild after git pulling!
 
