@@ -105,7 +105,7 @@ export class GeminiModelProvider implements ModelProvider {
 		this.keyProvider = new UnionKeyProvider([]);
 
 		if (this.config.url.endsWith("/")) {
-			this.config.url.substring(
+			this.config.url = this.config.url.substring(
 				0,
 				this.config.url.length - 1,
 			);
@@ -295,9 +295,6 @@ export class GeminiModelProvider implements ModelProvider {
 				);
 
 			if (!chunkParse.success) {
-				console.log(
-					`Got chunk ${JSON.stringify(data)}`,
-				);
 				continue;
 			}
 
