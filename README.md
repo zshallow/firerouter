@@ -1,8 +1,8 @@
 # FireRouter
 
 This is sort of a gimmick local reverse proxy for use with chat completion APIs. It consumes
-different apis (currently only other OpenAI-likes, OpenRouter and Gemini) and exposes a
-common OpenAI-like API.
+different apis (currently only OpenAI-likes, OpenRouter and Gemini) and exposes a
+common OpenAI-like API (with streaming support!).
 
 Look at this SillyTavern Custom OpenAI configuration and the Available Models list:
 
@@ -24,9 +24,11 @@ modelProviders:
     processorChain: myCustomChainThatSetsTempTo2
 ```
 
-So they're both just OpenRouter GPT 4.1, except the latter has a `processorChain`.
+As you can see, the names used here are what's exposed on the other end to ST.
+In terms of configuration proper, they're both just OpenRouter GPT 4.1, except
+the latter has a `processorChain`.
 
-A processor chain is just a sequence of request processors that alter it before it's sent.
+A processor chain is just a sequence of processors that alter a request before it's sent.
 
 This is what `myCustomChainThatSetsTempTo2` looks like in the `config.yaml`:
 
@@ -41,7 +43,7 @@ processorChains:
 "overridesamplers" does what it sounds like it does. "nosys" changes all system messages to
 user role. These processors are guaranteed to run in order, and you won't be stopped from doing
 something stupid like overriding temp 5 times before settling on a number you like, or lying
-about what your processors do.
+about what your processors do in their names.
 
 Finally, you configure your keys by distributing keyProviders between models. Like this:
 
@@ -51,11 +53,12 @@ keyProviders:
     type: "literal"
     key: "sk-or-v1-your-actual-key-here-lol"
     modelTargets:
-      - ".*"
+      - "^gpt"
 ```
 
 The `modelTargets` field is a regex you use to filter out models you've configured and assign
-them keys. For example, `openrouter` will assign the key to every model with "openrouter" in
+them keys. "^gpt" in this case means "every model with a name that starts with gpt."
+For another example, just `openrouter` will assign the key to every model with "openrouter" in
 its name. `.*` assigns your key to every model (very useful if, for example, you already only
 use openrouter).
 
@@ -73,12 +76,12 @@ modelProviders:
     modelName: "qwen/qwen3-32b"
   random:
     type: "random"
-    modelList:
+    modelList: # models are weighted equally if you use a modelList
       - gpt-4.1
       - qwen-3-32b
   random-2:
     type: "random"
-    modelWeights:
+    modelWeights: # or you can assign arbitrary positive weights!
       "gpt-4.1": 0.4
       "qwen-3-32b": 0.6
 ```
@@ -102,4 +105,9 @@ build with `npm run build` and run with `npm run start`. Server listens by defau
 on `http://127.0.0.1:3000/v1`.
 
 Remember to rebuild after git pulling!
+
+### Auth
+
+There's no auth. There will be no auth. This isn't fit for anything
+other than strictly local deployments. It will remain like this.
 
