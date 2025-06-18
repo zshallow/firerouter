@@ -146,7 +146,7 @@ export class GeminiModelProvider implements ModelProvider {
 
 				content.push({
 					role:
-						message.role === "user"
+						message.role !== "assistant"
 							? "user"
 							: "model",
 					parts: parts,
@@ -318,7 +318,7 @@ export class GeminiModelProvider implements ModelProvider {
 										) =>
 											part.text,
 									)
-									.join(),
+									.join(""),
 							},
 						};
 					},
