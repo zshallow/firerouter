@@ -315,7 +315,9 @@ export class GeminiModelProvider implements ModelProvider {
 										) =>
 											part.text,
 									)
-									.join(""),
+									.join(
+										"",
+									),
 							},
 						};
 					},

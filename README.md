@@ -94,10 +94,6 @@ to try and increase your response variety, or between something like Claude Opus
 Claude Sonnet 4, to lower your average request costs, or even between multiple variations
 of the same model, with different processor chains!
 
-## Configuration
-
-See the config.example.yaml for details.
-
 ## Running
 
 Git clone the project normally (like you did ST), install deps with `npm i`,
@@ -106,8 +102,235 @@ on `http://127.0.0.1:3000/v1`.
 
 Remember to rebuild after git pulling!
 
-### Auth
+## Auth
 
 There's no auth. There will be no auth. This isn't fit for anything
 other than strictly local deployments. It will remain like this.
+
+## Configuration
+
+## Top-Level Configuration
+
+This is the main configuration object for the entire application.
+
+| Property          | Type                                         | Default       | Description                                                                                                                               |
+| ----------------- |----------------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| `port`            | `number`                                     | `3000`        | The port number on which the server will listen.                                                                                          |
+| `keyProviders`    | `Map<string, KeyProviderConfiguration>`      | (Required)    | A map of named key providers. The key is a unique name you choose, and the value is the provider's configuration object.                  |
+| `modelProviders`  | `Map<string, ModelProviderConfiguration>`    | (Required)    | A map of named model providers. The key is a unique name you choose (e.g., "gpt-4-turbo"), and the value is the provider's configuration. |
+| `processorChains` | `Map<string, ProcessorChainConfiguration>`   | `(empty map)` | A map of named processor chains. The key is a unique name, and the value is an array of processor configurations.                         |
+
+---
+
+## Key Providers
+
+### Environment Key Provider
+
+Loads an API key from a system environment variable.
+
+**`type: "environment"`**
+
+| Property       | Type       | Required | Description                                                                            |
+| -------------- | ---------- | -------- |----------------------------------------------------------------------------------------|
+| `type`         | `string`   | Yes      | Must be `"environment"`.                                                               |
+| `modelTargets` | `string[]` | Yes      | A list of regexes that filter the models in `modelProviders` that this key applies to. |
+| `envVar`       | `string`   | Yes      | The name of the environment variable to read the key from.                             |
+
+### Literal Key Provider
+
+Uses a key that is directly embedded in the configuration file.
+
+**`type: "literal"`**
+
+| Property       | Type       | Required | Description                                                                 |
+| -------------- | ---------- | -------- | --------------------------------------------------------------------------- |
+| `type`         | `string`   | Yes      | Must be `"literal"`.                                                        |
+| `modelTargets` | `string[]` | Yes      | A list of regexes that filter the models in `modelProviders` that this key applies to. |
+| `key`          | `string`   | Yes      | The actual API key string.                                                  |
+
+---
+
+## Model Providers
+
+### Base Properties
+
+| Property         | Type     | Required | Description                                                                                           |
+| ---------------- | -------- | -------- | ----------------------------------------------------------------------------------------------------- |
+| `processorChain` | `string` | No       | The name of a `processorChain` (defined in the top-level `processorChains` map) to apply to requests. |
+
+### Generic OpenAI-Compatible Provider
+
+Use this for any service that exposes an OpenAI-compatible API, such as OpenAI itself, local engines like `llamacpp`,
+or other compatible services.
+
+**`type: "genericoai"`**
+
+| Property    | Type     | Default                                      | Description                                                |
+| ----------- | -------- |----------------------------------------------|------------------------------------------------------------|
+| `type`      | `string` | (Required)                                   | Must be `"genericoai"`.                                    |
+| `url`       | `string` | `https://api.openai.com/v1/chat/completions` | The full URL to the chat completions endpoint.             |
+| `modelName` | `string` | (Required)                                   | The name of the model to use (e.g., `gpt-4-1106-preview`). |
+
+### OpenRouter Provider
+
+A dedicated provider for connecting to [OpenRouter](https://openrouter.ai/).
+
+**`type: "openrouter"`**
+
+| Property    | Type     | Required | Description                                               |
+| ----------- | -------- | -------- |-----------------------------------------------------------|
+| `type`      | `string` | Yes      | Must be `"openrouter"`.                                   |
+| `modelName` | `string` | Yes      | The OpenRouter model name (e.g., `mistralai/mistral-7b`). |
+
+### Gemini Provider
+
+A dedicated provider for connecting to Google's Gemini models.
+
+**`type: "gemini"`**
+
+| Property    | Type     | Default                                                    | Description                                               |
+| ----------- | -------- | ---------------------------------------------------------- |-----------------------------------------------------------|
+| `type`      | `string` | (Required)                                                 | Must be `"gemini"`.                                       |
+| `url`       | `string` | `https://generativelanguage.googleapis.com/v1beta/models`  | The base URL for the Gemini API.                          |
+| `modelName` | `string` | (Required)                                                 | The name of the Gemini model to use (e.g., `gemini-pro`). |
+
+### Random Model Provider
+
+A meta-provider that randomly selects one of its configured models for each request, optionally using weights.
+
+**`type: "random"`**
+
+| Property       | Type                  | Required | Description                                                                                                                                                               |
+| -------------- | --------------------- | -------- |---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `type`         | `string`              | Yes      | Must be `"random"`.                                                                                                                                                       |
+| `modelList`    | `string[]`            | No       | A list of model provider names to choose from uniformly. Either use this or modelWeights.                                                                                 |
+| `modelWeights` | `Map<string, number>` | No       | A map where keys are model provider names and values are their selection weights. Higher weights are more likely to be chosen. Overrides `modelList` if both are present. |
+
+### Trivial Model Provider
+
+A simple provider for testing and debugging. It responds with a fixed, pre-defined sentence.
+
+**`type: "trivial"`**
+
+| Property | Type     | Default                                              | Description                                   |
+| -------- | -------- |------------------------------------------------------| --------------------------------------------- |
+| `type`   | `string` | (Required)                                           | Must be `"trivial"`.                          |
+| `output` | `string` | `Yahallo! Some extra padding to make this longer...` | The static string to return in every response. |
+
+---
+
+## Processor Chains
+
+### No Dangling System Messages Processor
+
+Ensures that once a non-system message appears in the chat history, all subsequent system messages are converted
+to the `user` role.
+
+**`type: "nodanglingsys"`**
+
+| Property | Type     | Required | Description                |
+| -------- | -------- | -------- |----------------------------|
+| `type`   | `string` | Yes      | Must be `"nodanglingsys"`. |
+
+### No System Messages Processor
+
+A simple processor that transforms every system message into a user message.
+
+**`type: "nosys"`**
+
+| Property | Type     | Required | Description        |
+| -------- | -------- | -------- | ------------------ |
+| `type`   | `string` | Yes      | Must be `"nosys"`. |
+
+### Override Samplers Processor
+
+Overrides or unsets sampler parameters (like temperature, top_p, etc.) for a request. To remove a sampler
+that was sent by the client, set its value to `"unset"`.
+
+**`type: "overridesamplers"`**
+
+| Property            | Type                          | Required | Description                                                |
+| ------------------- | ----------------------------- | -------- | ---------------------------------------------------------- |
+| `type`              | `string`                      | Yes      | Must be `"overridesamplers"`.                              |
+| `temperature`       | `number \| "unset"`           | No       | The temperature value to set or `"unset"` to remove.       |
+| `topP`              | `number \| "unset"`           | No       | The top_p value to set or `"unset"` to remove.             |
+| `topK`              | `number \| "unset"`           | No       | The top_k value to set or `"unset"` to remove.             |
+| `topA`              | `number \| "unset"`           | No       | The top_a value to set or `"unset"` to remove.             |
+| `minP`              | `number \| "unset"`           | No       | The min_p value to set or `"unset"` to remove.             |
+| `frequencyPenalty`  | `number \| "unset"`           | No       | The frequency_penalty value to set or `"unset"` to remove. |
+| `repetitionPenalty` | `number \| "unset"`           | No       | The repetition_penalty value to set or `"unset"` to remove. |
+| `presencePenalty`   | `number \| "unset"`           | No       | The presence_penalty value to set or `"unset"` to remove.  |
+
+### Regex Processor
+
+Applies a regular expression find-and-replace operation on the content of every message in the request.
+
+**`type: "regex"`**
+
+| Property      | Type     | Required | Description                                                      |
+| ------------- | -------- | -------- |------------------------------------------------------------------|
+| `type`        | `string` | Yes      | Must be `"regex"`.                                               |
+| `pattern`     | `string` | Yes      | The regular expression pattern to search for (do not wrap in /). |
+| `flags`       | `string` | No       | Regex flags (e.g., "g" for global, "i" for case-insensitive).    |
+| `replacement` | `string` | Yes      | The string to replace the matched pattern with.                  |
+
+### Random Processor
+
+A meta-processor that randomly selects one processor from a list to execute. This allows for creating dynamic and varied processing chains.
+
+**`type: "random"`**
+
+| Property        | Type                       | Required | Description                                                         |
+| --------------- |----------------------------| -------- | ------------------------------------------------------------------- |
+| `type`          | `string`                   | Yes      | Must be `"random"`.                                                 |
+| `processorList` | `ProcessorConfiguration[]` | Yes      | An array of other processor configurations to choose from randomly. |
+
+---
+
+## Example Configuration (YAML)
+
+```yaml
+# config.yaml
+
+port: 3000
+
+keyProviders:
+  oai-key:
+    type: environment
+    modelTargets:
+      - furbo
+    envVar: MY_OAI_KEY
+  or-key:
+    type: literal
+    modelTargets:
+      - mistral
+
+modelProviders:
+  furbo:
+    type: genericoai
+    modelName: gpt-4-1106-preview
+    processorChain: strict-chat
+    
+  mistral-7b:
+    type: openrouter
+    modelName: mistralai/mistral-7b
+
+  random-picker:
+    type: random
+    modelWeights:
+      gpt-4-turbo: 1 # Lower weight, less likely
+      mistral-7b: 3  # Higher weight, more likely
+
+processorChains:
+  # A chain to enforce strict chat formatting and sampling
+  strict-chat:
+    # First, convert all system messages to user messages
+    - type: nosys
+    # Then, override any client-sent samplers with these fixed values
+    - type: overridesamplers
+      temperature: 0.7
+      topP: 0.9
+      # Explicitly remove topK if the client sends it
+      topK: "unset"
+```
 
