@@ -1,18 +1,14 @@
-import { z } from "zod/v4";
+import { KeyProvider } from "../interfaces/key-provider";
+import { SimpleLiteralKeyProviderConfiguration } from "../config";
 
 export class SimpleLiteralKeyProvider implements KeyProvider {
 	key: string;
 
-	constructor(key: string) {
-		this.key = key;
+	constructor(config: SimpleLiteralKeyProviderConfiguration) {
+		this.key = config.key;
 	}
 
 	provide(): string {
 		return this.key;
 	}
 }
-
-export const SimpleLiteralKeyProviderConfigurationSchema = z.object({
-	type: z.literal("literal"),
-	key: z.string(),
-});

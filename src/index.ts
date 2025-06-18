@@ -1,15 +1,17 @@
-import { TrivialModelProvider } from "./model-providers/trivial-model-provider.js";
 import fs from "fs/promises";
 import YAML from "yaml";
 import { ConfigSchema } from "./config.js";
-import { SimpleEnvironmentKeyProvider } from "./key-providers/simple-environment-key-provider.js";
-import { SimpleLiteralKeyProvider } from "./key-providers/simple-literal-key-provider.js";
 import { FireChatCompletionRequestSchema } from "./types/fire-chat-completion-request.js";
 import { encodeData } from "eventsource-encoder";
-import { OpenrouterModelProvider } from "./model-providers/openrouter-model-provider.js";
 import { ModelProvider } from "./interfaces/model-provider.js";
 import Fastify from "fastify";
-import { RandomModelProvider } from "./model-providers/random-model-provider.js";
+import { RegexMatchable, UnionMatchable } from "./utils/matchable.js";
+import { ChainProcessor } from "./processor/chain-processor.js";
+import { keyProviderFactory } from "./factories/key-provider-factory.js";
+import { modelProviderFactory } from "./factories/model-provider-factory.js";
+import { processorFactory } from "./factories/processor-factory.js";
+import { ProcessedModelProvider } from "./model-providers/processed-model-provider.js";
+import { Processor } from "./interfaces/processor.js";
 
 async function main() {
 	const configFilePath = new URL("../config.yaml", import.meta.url);
@@ -18,68 +20,58 @@ async function main() {
 	});
 	const config = ConfigSchema.parse(YAML.parse(configFile));
 
-	const keyProviders = new Map();
+	const processorChains: Map<string, Processor> = new Map();
+	for (const [name, processorChainConfig] of config.processorChains) {
+		const processorChain = new ChainProcessor(
+			processorChainConfig.map(function (processorConfig) {
+				return processorFactory.makeProcessor(
+					processorConfig,
+				);
+			}),
+		);
 
-	for (const [name, keyConfig] of config.keyProviders) {
-		switch (keyConfig.type) {
-			case "environment": {
-				keyProviders.set(
-					name,
-					new SimpleEnvironmentKeyProvider(
-						keyConfig.envVar,
-					),
-				);
-				break;
-			}
-			case "literal": {
-				keyProviders.set(
-					name,
-					new SimpleLiteralKeyProvider(
-						keyConfig.key,
-					),
-				);
-				break;
-			}
-		}
+		processorChains.set(name, processorChain);
 	}
 
 	const modelProviders: Map<string, ModelProvider> = new Map();
-
 	for (const [name, modelConfig] of config.modelProviders) {
-		switch (modelConfig.type) {
-			case "trivial": {
-				modelProviders.set(
-					name,
-					new TrivialModelProvider(modelConfig),
-				);
-				break;
-			}
-			case "openrouter": {
-				const keyProvider = keyProviders.get(
-					modelConfig.keyProvider,
-				);
-				if (!keyProvider) {
-					throw `Model Provider ${name} required Key Provider ${modelConfig.keyProvider}: not found!`;
-				}
+		let modelProvider: ModelProvider =
+			modelProviderFactory.makeModelProvider(modelConfig, {
+				modelsProvider: modelProviders,
+			});
 
-				modelProviders.set(
-					name,
-					new OpenrouterModelProvider(
-						keyProvider,
-						modelConfig,
-					),
+		if (modelConfig.processorChain) {
+			const chain = processorChains.get(
+				modelConfig.processorChain,
+			);
+			if (chain === undefined) {
+				throw new Error(
+					`Could not find chain ${modelConfig.processorChain}`,
 				);
-				break;
 			}
-			case "random": {
-				modelProviders.set(
-					name,
-					new RandomModelProvider(
-						modelProviders,
-						modelConfig,
-					),
-				);
-				break;
+
+			modelProvider = new ProcessedModelProvider(
+				modelProvider,
+				chain,
+			);
+		}
+
+		modelProviders.set(name, modelProvider);
+	}
+
+	for (const [, keyConfig] of config.keyProviders) {
+		const keyProvider =
+			keyProviderFactory.makeKeyProvider(keyConfig);
+
+		const m = new UnionMatchable(
+			keyConfig.modelTargets.map(
+				(s) => new RegexMatchable(new RegExp(s)),
+			),
+		);
+
+		for (const [name, modelProvider] of modelProviders) {
+			if (m.match(name)) {
+				modelProvider.addKeyProvider(keyProvider);
 			}
 		}
 	}
@@ -88,7 +80,7 @@ async function main() {
 		logger: true,
 	});
 
-	fastify.get("/v1/models", async function (req, res) {
+	fastify.get("/v1/models", function () {
 		const modelsList = Array.from(modelProviders.keys())
 			.sort()
 			.map((name) => {
@@ -106,18 +98,36 @@ async function main() {
 	});
 
 	fastify.post("/v1/chat/completions", async function (req, res) {
+		const controller = new AbortController();
+
+		req.raw.on("close", () => {
+			// eslint-disable-next-line @typescript-eslint/no-deprecated
+			if (req.raw.aborted) {
+				// Yes, aborted is deprecated. But destroyed...doesn't work??? Lol.
+				// I love the nodejs standard library.
+				fastify.log.debug(
+					"Request cancelled by client!",
+				);
+				controller.abort("Original request cancelled.");
+			}
+		});
+
 		const requestBody = FireChatCompletionRequestSchema.parse(
 			req.body,
 		);
 
 		const modelProvider = modelProviders.get(requestBody.model);
 		if (!modelProvider) {
-			throw `Bad request: model ${requestBody.model} not found!`;
+			throw new Error(
+				"Bad request: model ${requestBody.model} not found!",
+			);
 		}
 
 		if (requestBody.stream) {
-			const chunkIterator =
-				modelProvider.doStreamingRequest(requestBody);
+			const chunkIterator = modelProvider.doStreamingRequest(
+				requestBody,
+				controller.signal,
+			);
 
 			res.status(200);
 			res.header("Content-Type", "text/event-stream");
@@ -130,8 +140,10 @@ async function main() {
 
 			res.raw.end();
 		} else {
-			const response =
-				await modelProvider.doRequest(requestBody);
+			const response = await modelProvider.doRequest(
+				requestBody,
+				controller.signal,
+			);
 			res.status(200);
 			res.header("Content-Type", "application/json");
 			res.send(response);
@@ -146,4 +158,6 @@ async function main() {
 	});
 }
 
-main().catch((err) => console.error(err));
+main().catch((err: unknown) => {
+	console.error(err);
+});

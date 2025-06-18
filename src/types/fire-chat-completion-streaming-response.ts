@@ -1,4 +1,4 @@
-type FireChatCompletionStreamingResponse =
+export type FireChatCompletionStreamingResponse =
 	AsyncIterable<FireChatCompletionChunk>;
 
 type FireChatCompletionChunk = {

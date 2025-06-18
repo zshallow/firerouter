@@ -4,13 +4,15 @@ export function normalizeWeightedOptions<T>(
 	opts: WeightedOption<T>[],
 ): WeightedOption<T>[] {
 	if (opts.length === 0) {
-		throw "At least one option must be provided!";
+		throw new Error("At least one option must be provided!");
 	}
 
 	let sum = 0;
-	for (const [_, weight] of opts) {
+	for (const [, weight] of opts) {
 		if (weight <= 0) {
-			throw "Weights must be non-zero and positive.";
+			throw new Error(
+				"Weights must be non-zero and positive.",
+			);
 		}
 
 		sum += weight;

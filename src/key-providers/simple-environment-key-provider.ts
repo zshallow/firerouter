@@ -1,22 +1,21 @@
-import { z } from "zod/v4";
+import { KeyProvider } from "../interfaces/key-provider";
+import { SimpleEnvironmentKeyProviderConfiguration } from "../config";
 
 export class SimpleEnvironmentKeyProvider implements KeyProvider {
 	key: string;
 
-	constructor(envVar: string) {
-		if (!process.env[envVar]) {
-			throw "Failed to initialize SimpleEnvironmentKeyProvider!";
+	constructor(config: SimpleEnvironmentKeyProviderConfiguration) {
+		const key = process.env[config.envVar];
+		if (!key) {
+			throw new Error(
+				`Failed to initialize SimpleEnvironmentKeyProvider! EnvVar ${config.envVar} could not be loaded!`,
+			);
 		}
 
-		this.key = process.env[envVar];
+		this.key = key;
 	}
 
 	provide(): string {
 		return this.key;
 	}
 }
-
-export const SimpleEnvironmentKeyProviderConfigurationSchema = z.object({
-	type: z.literal("environment"),
-	envVar: z.string(),
-});

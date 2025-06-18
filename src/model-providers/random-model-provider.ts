@@ -1,13 +1,13 @@
 import { ModelProvider } from "../interfaces/model-provider.js";
-import { z } from "zod/v4";
 import { FireChatCompletionRequest } from "../types/fire-chat-completion-request.js";
 import { FireChatCompletionResponse } from "../types/fire-chat-completion-response.js";
-import { coercedMap } from "../utils/coerced-map.js";
 import {
 	normalizeWeightedOptions,
 	selectRandomOption,
 	WeightedOption,
 } from "../utils/random-selection-with-weights.js";
+import { FireChatCompletionStreamingResponse } from "../types/fire-chat-completion-streaming-response";
+import { RandomModelProviderConfiguration } from "../config.js";
 
 export class RandomModelProvider implements ModelProvider {
 	modelsProvider: Map<string, ModelProvider>;
@@ -18,6 +18,7 @@ export class RandomModelProvider implements ModelProvider {
 		config: RandomModelProviderConfiguration,
 	) {
 		this.modelsProvider = modelsProvider;
+
 		if (config.modelWeights) {
 			this.weightedModels = normalizeWeightedOptions(
 				Array.from(config.modelWeights.entries()),
@@ -27,12 +28,15 @@ export class RandomModelProvider implements ModelProvider {
 				config.modelList.map((model) => [model, 1]),
 			);
 		} else {
-			throw "Please define either the modelList array or the modelWeights map.";
+			throw new Error(
+				"Please define either the modelList array or the modelWeights map.",
+			);
 		}
 	}
 
 	doRequest(
 		req: FireChatCompletionRequest,
+		sgn: AbortSignal,
 	): Promise<FireChatCompletionResponse> {
 		for (let i = 0; i < 100; i++) {
 			const modelName = selectRandomOption(
@@ -47,18 +51,21 @@ export class RandomModelProvider implements ModelProvider {
 				continue;
 			}
 
-			return modelProvider.doRequest(req);
+			return modelProvider.doRequest(req, sgn);
 		}
 
-		throw `Failed to find any valid model provider!`;
+		throw new Error("Failed to find any valid model provider!");
 	}
 
 	doStreamingRequest(
 		req: FireChatCompletionRequest,
+		sgn: AbortSignal,
 	): FireChatCompletionStreamingResponse {
 		for (let i = 0; i < 100; i++) {
 			if (i > 100) {
-				throw "Failed to select an existing random model!";
+				throw new Error(
+					"Failed to select an existing random model!",
+				);
 			}
 
 			const modelName = selectRandomOption(
@@ -73,19 +80,11 @@ export class RandomModelProvider implements ModelProvider {
 				continue;
 			}
 
-			return modelProvider.doStreamingRequest(req);
+			return modelProvider.doStreamingRequest(req, sgn);
 		}
 
-		throw `Failed to find any valid model provider!`;
+		throw new Error("Failed to find any valid model provider!");
 	}
+
+	addKeyProvider() {}
 }
-
-export const RandomModelProviderConfigurationSchema = z.object({
-	type: z.literal("random"),
-	modelList: z.array(z.string()).optional(),
-	modelWeights: coercedMap(z.string(), z.number()).optional(),
-});
-
-type RandomModelProviderConfiguration = z.infer<
-	typeof RandomModelProviderConfigurationSchema
->;

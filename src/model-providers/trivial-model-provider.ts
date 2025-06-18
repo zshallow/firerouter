@@ -1,13 +1,13 @@
 import { ModelProvider } from "../interfaces/model-provider.js";
-import { FireChatCompletionRequest } from "../types/fire-chat-completion-request.js";
 import { FireChatCompletionResponse } from "../types/fire-chat-completion-response";
-import { z } from "zod/v4";
+import { FireChatCompletionStreamingResponse } from "../types/fire-chat-completion-streaming-response";
+import { TrivialModelProviderConfiguration } from "../config.js";
 
 export class TrivialModelProvider implements ModelProvider {
 	output: string;
 
-	async doRequest(): Promise<FireChatCompletionResponse> {
-		return {
+	doRequest(): Promise<FireChatCompletionResponse> {
+		return Promise.resolve({
 			choices: [
 				{
 					index: 0,
@@ -18,7 +18,7 @@ export class TrivialModelProvider implements ModelProvider {
 				},
 			],
 			model: "trivial",
-		};
+		});
 	}
 
 	async *doStreamingRequest(): FireChatCompletionStreamingResponse {
@@ -47,17 +47,6 @@ export class TrivialModelProvider implements ModelProvider {
 		console.log("Initializing a new trivial model provider!");
 		this.output = config.output;
 	}
+
+	addKeyProvider() {}
 }
-
-export const TrivialModelProviderConfigurationSchema = z.object({
-	type: z.literal("trivial"),
-	output: z
-		.string()
-		.default(
-			"Yahallo! Some extra padding to make this longer lol.",
-		),
-});
-
-type TrivialModelProviderConfiguration = z.infer<
-	typeof TrivialModelProviderConfigurationSchema
->;
