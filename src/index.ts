@@ -129,10 +129,19 @@ async function main() {
 				controller.signal,
 			);
 
-			res.status(200);
-			res.header("Content-Type", "text/event-stream");
+			//Ensures we only send headers once and only send them when the request is guaranteed OK.
+			let firstChunk = true;
 
 			for await (const chunk of chunkIterator) {
+				if (firstChunk) {
+					res.status(200);
+					res.header(
+						"Content-Type",
+						"text/event-stream",
+					);
+					firstChunk = false;
+				}
+
 				res.raw.write(
 					encodeData(JSON.stringify(chunk)),
 				);
