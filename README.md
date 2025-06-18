@@ -55,7 +55,8 @@ keyProviders:
 
 The `modelTargets` field is a regex you use to filter out models you've configured and assign
 them keys. For example, `openrouter` will assign the key to every model with "openrouter" in
-its name. ".*" assigns your key to every model (if, for example, you already only use openrouter).
+its name. `.*` assigns your key to every model (very useful if, for example, you already only
+use openrouter).
 
 ## Randomization
 
