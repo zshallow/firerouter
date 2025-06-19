@@ -2,15 +2,16 @@ import { FireChatCompletionRequest } from "../types/fire-chat-completion-request
 import { FireChatCompletionResponse } from "../types/fire-chat-completion-response";
 import { KeyProvider } from "./key-provider";
 import { FireChatCompletionStreamingResponse } from "../types/fire-chat-completion-streaming-response";
+import { RequestContext } from "../types/request-context";
 
 export interface ModelProvider {
 	doRequest(
 		req: FireChatCompletionRequest,
-		sgn: AbortSignal,
+		ctx: RequestContext,
 	): Promise<FireChatCompletionResponse>;
 	doStreamingRequest(
 		req: FireChatCompletionRequest,
-		sgn: AbortSignal,
+		ctx: RequestContext,
 	): FireChatCompletionStreamingResponse;
 	addKeyProvider(keyProvider: KeyProvider): void;
 }

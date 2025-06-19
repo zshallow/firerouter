@@ -7,6 +7,7 @@ import { UnionKeyProvider } from "../key-providers/union-key-provider.js";
 import { KeyProvider } from "../interfaces/key-provider.js";
 import { FireChatCompletionStreamingResponse } from "../types/fire-chat-completion-streaming-response.js";
 import { GenericOAIModelProviderConfiguration } from "../config.js";
+import { RequestContext } from "../types/request-context";
 
 /**
  * Funny supporting types.
@@ -127,7 +128,7 @@ export class GenericOAIModelProvider implements ModelProvider {
 
 	async doRequest(
 		req: FireChatCompletionRequest,
-		sgn: AbortSignal,
+		ctx: RequestContext,
 	): Promise<FireChatCompletionResponse> {
 		const key = this.keyProvider.provide();
 
@@ -138,14 +139,14 @@ export class GenericOAIModelProvider implements ModelProvider {
 				Authorization: `Bearer ${key}`,
 			},
 			body: JSON.stringify(this.convertRequestBody(req)),
-			signal: sgn,
+			signal: ctx.signal,
 		});
 
 		if (!response.ok) {
-			console.error(
+			ctx.logger.error(
 				`OAI response status: ${response.statusText}`,
 			);
-			console.error(
+			ctx.logger.error(
 				`OAI response body: ${await response.text()}`,
 			);
 			throw new Error("Error performing request!");
@@ -156,7 +157,7 @@ export class GenericOAIModelProvider implements ModelProvider {
 
 	async *doStreamingRequest(
 		req: FireChatCompletionRequest,
-		sgn: AbortSignal,
+		ctx: RequestContext,
 	): FireChatCompletionStreamingResponse {
 		const key = this.keyProvider.provide();
 
@@ -171,15 +172,15 @@ export class GenericOAIModelProvider implements ModelProvider {
 				body: JSON.stringify(
 					this.convertRequestBody(req),
 				),
-				signal: sgn,
+				signal: ctx.signal,
 			},
 		);
 
 		if (!response.ok || !response.body) {
-			console.error(
+			ctx.logger.error(
 				`GenericOAI response status: ${response.statusText}`,
 			);
-			console.error(
+			ctx.logger.error(
 				`GenericOAI response body: ${await response.text()}`,
 			);
 			throw new Error("Error performing request!");
@@ -200,7 +201,7 @@ export class GenericOAIModelProvider implements ModelProvider {
 					data,
 				);
 			if (!chunkParse.success) {
-				console.log(
+				ctx.logger.debug(
 					`Got chunk ${JSON.stringify(data)}`,
 				);
 				continue;

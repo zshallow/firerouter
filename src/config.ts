@@ -91,7 +91,17 @@ const RandomModelProviderConfigurationSchema =
 		type: z.literal("random"),
 		modelList: z.array(z.string()).optional(),
 		modelWeights: coercedMap(z.string(), z.number()).optional(),
-	});
+	}).refine(
+		function (conf) {
+			return (
+				conf.modelList !== undefined ||
+				conf.modelWeights !== undefined
+			);
+		},
+		{
+			error: "At least one of modelList or modelWeights must be defined!",
+		},
+	);
 
 export type RandomModelProviderConfiguration = z.infer<
 	typeof RandomModelProviderConfigurationSchema
@@ -171,16 +181,94 @@ export type RegexProcessorConfiguration = z.infer<
 >;
 
 // Runs a nested in random processor
-const RandomProcessorConfigurationSchema = z.strictObject({
-	type: z.literal("random"),
-	processorList: z.array(
-		z.lazy((): SomeType => ProcessorConfigurationSchema),
-	),
-});
+// processorList is ignored if processorWeights is available
+const RandomProcessorConfigurationSchema = z
+	.strictObject({
+		type: z.literal("random"),
+		processorList: z
+			.array(
+				z.lazy(
+					(): SomeType =>
+						ProcessorConfigurationSchema,
+				),
+			)
+			.optional(),
+		processorWeights: z
+			.array(
+				z.strictObject({
+					weight: z.number(),
+					config: z.lazy(
+						(): SomeType =>
+							ProcessorConfigurationSchema,
+					),
+				}),
+			)
+			.optional(),
+	})
+	.refine(
+		function (conf) {
+			return (
+				conf.processorWeights !== undefined ||
+				conf.processorList !== undefined
+			);
+		},
+		{
+			error: "At least one of processorWeights or processorList must be defined!",
+		},
+	);
 
 export type RandomProcessorConfiguration = z.infer<
 	typeof RandomProcessorConfigurationSchema
 >;
+
+const NoassProcessorConfigurationSchema = z.strictObject({
+	type: z.literal("noass"),
+	role: z.union([z.literal("user"), z.literal("assistant")]),
+});
+
+export type NoassProcessorConfiguration = z.infer<
+	typeof NoassProcessorConfigurationSchema
+>;
+
+const SquashProcessorConfigurationSchema = z.strictObject({
+	type: z.literal("squash"),
+	squashString: z.string().default("\n\n"),
+	roles: z.array(
+		z.union([
+			z.literal("user"),
+			z.literal("assistant"),
+			z.literal("system"),
+			z.literal("developer"),
+		]),
+	),
+});
+
+const InsertMessageProcessorConfigurationSchema = z.strictObject({
+	type: z.literal("insertmessage"),
+	role: z.union([
+		z.literal("user"),
+		z.literal("assistant"),
+		z.literal("system"),
+		z.literal("developer"),
+	]),
+	content: z.string(),
+	position: z.int(), // Negative positions DO work. The code literally just calls splice.
+});
+
+export type InsertMessageProcessorConfiguration = z.infer<
+	typeof InsertMessageProcessorConfigurationSchema
+>;
+
+export type SquashProcessorConfiguration = z.infer<
+	typeof SquashProcessorConfigurationSchema
+>;
+
+const ChainProcessorConfigurationSchema = z.strictObject({
+	type: z.literal("chain"),
+	processors: z.array(
+		z.lazy((): SomeType => ProcessorConfigurationSchema),
+	),
+});
 
 const ProcessorConfigurationSchema = z.discriminatedUnion("type", [
 	NoDanglingSysProcessorConfigurationSchema,
@@ -188,6 +276,10 @@ const ProcessorConfigurationSchema = z.discriminatedUnion("type", [
 	OverrideSamplersProcessorConfigurationSchema,
 	RegexProcessorConfigurationSchema,
 	RandomProcessorConfigurationSchema,
+	SquashProcessorConfigurationSchema,
+	NoassProcessorConfigurationSchema,
+	InsertMessageProcessorConfigurationSchema,
+	ChainProcessorConfigurationSchema,
 ]);
 
 export type ProcessorConfiguration = z.infer<

@@ -7,6 +7,7 @@ import { FireChatCompletionStreamingResponse } from "../types/fire-chat-completi
 import { UnionKeyProvider } from "../key-providers/union-key-provider.js";
 import { EventSourceParserStream } from "eventsource-parser/stream";
 import { GeminiModelProviderConfiguration } from "../config.js";
+import { RequestContext } from "../types/request-context";
 
 /**
  * Funny supporting types.
@@ -201,7 +202,7 @@ export class GeminiModelProvider implements ModelProvider {
 
 	async doRequest(
 		req: FireChatCompletionRequest,
-		sgn: AbortSignal,
+		ctx: RequestContext,
 	): Promise<FireChatCompletionResponse> {
 		const key = this.keyProvider.provide();
 
@@ -215,15 +216,15 @@ export class GeminiModelProvider implements ModelProvider {
 				body: JSON.stringify(
 					this.convertRequestBody(req),
 				),
-				signal: sgn,
+				signal: ctx.signal,
 			},
 		);
 
 		if (!response.ok) {
-			console.error(
+			ctx.logger.error(
 				`Gemini response status: ${response.statusText}`,
 			);
-			console.error(
+			ctx.logger.error(
 				`Gemini response body: ${await response.text()}`,
 			);
 			throw new Error("Error performing request!");
@@ -254,7 +255,7 @@ export class GeminiModelProvider implements ModelProvider {
 	 */
 	async *doStreamingRequest(
 		req: FireChatCompletionRequest,
-		sgn: AbortSignal,
+		ctx: RequestContext,
 	): FireChatCompletionStreamingResponse {
 		const key = this.keyProvider.provide();
 
@@ -269,15 +270,15 @@ export class GeminiModelProvider implements ModelProvider {
 				body: JSON.stringify(
 					this.convertRequestBody(req),
 				),
-				signal: sgn,
+				signal: ctx.signal,
 			},
 		);
 
 		if (!response.ok || !response.body) {
-			console.error(
+			ctx.logger.error(
 				`Gemini response status: ${response.statusText}`,
 			);
-			console.error(
+			ctx.logger.error(
 				`Gemini response body: ${await response.text()}`,
 			);
 			throw new Error("Error performing request!");

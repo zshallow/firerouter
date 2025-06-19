@@ -126,7 +126,7 @@ async function main() {
 		if (requestBody.stream) {
 			const chunkIterator = modelProvider.doStreamingRequest(
 				requestBody,
-				controller.signal,
+				{ logger: req.log, signal: controller.signal },
 			);
 
 			//Ensures we only send headers once and only send them when the request is guaranteed OK.
@@ -151,7 +151,7 @@ async function main() {
 		} else {
 			const response = await modelProvider.doRequest(
 				requestBody,
-				controller.signal,
+				{ logger: req.log, signal: controller.signal },
 			);
 			res.status(200);
 			res.header("Content-Type", "application/json");

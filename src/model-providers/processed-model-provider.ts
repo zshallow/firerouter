@@ -4,6 +4,7 @@ import { FireChatCompletionRequest } from "../types/fire-chat-completion-request
 import { FireChatCompletionResponse } from "../types/fire-chat-completion-response";
 import { FireChatCompletionStreamingResponse } from "../types/fire-chat-completion-streaming-response";
 import { KeyProvider } from "../interfaces/key-provider";
+import { RequestContext } from "../types/request-context";
 
 export class ProcessedModelProvider implements ModelProvider {
 	nested: ModelProvider;
@@ -16,18 +17,18 @@ export class ProcessedModelProvider implements ModelProvider {
 
 	doRequest(
 		req: FireChatCompletionRequest,
-		sgn: AbortSignal,
+		ctx: RequestContext,
 	): Promise<FireChatCompletionResponse> {
-		return this.nested.doRequest(this.processor.process(req), sgn);
+		return this.nested.doRequest(this.processor.process(req), ctx);
 	}
 
 	doStreamingRequest(
 		req: FireChatCompletionRequest,
-		sgn: AbortSignal,
+		ctx: RequestContext,
 	): FireChatCompletionStreamingResponse {
 		return this.nested.doStreamingRequest(
 			this.processor.process(req),
-			sgn,
+			ctx,
 		);
 	}
 

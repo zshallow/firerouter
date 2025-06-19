@@ -8,6 +8,7 @@ import {
 } from "../utils/random-selection-with-weights.js";
 import { FireChatCompletionStreamingResponse } from "../types/fire-chat-completion-streaming-response";
 import { RandomModelProviderConfiguration } from "../config.js";
+import { RequestContext } from "../types/request-context";
 
 export class RandomModelProvider implements ModelProvider {
 	modelsProvider: Map<string, ModelProvider>;
@@ -34,10 +35,7 @@ export class RandomModelProvider implements ModelProvider {
 		}
 	}
 
-	doRequest(
-		req: FireChatCompletionRequest,
-		sgn: AbortSignal,
-	): Promise<FireChatCompletionResponse> {
+	private selectRandomModel(ctx: RequestContext): ModelProvider {
 		for (let i = 0; i < 100; i++) {
 			const modelName = selectRandomOption(
 				this.weightedModels,
@@ -45,45 +43,30 @@ export class RandomModelProvider implements ModelProvider {
 			const modelProvider =
 				this.modelsProvider.get(modelName);
 			if (!modelProvider) {
-				console.error(
+				ctx.logger.error(
 					`Failed to find model provider ${modelName}. Trying again.`,
 				);
 				continue;
 			}
 
-			return modelProvider.doRequest(req, sgn);
+			return modelProvider;
 		}
 
 		throw new Error("Failed to find any valid model provider!");
 	}
 
+	doRequest(
+		req: FireChatCompletionRequest,
+		ctx: RequestContext,
+	): Promise<FireChatCompletionResponse> {
+		return this.selectRandomModel(ctx).doRequest(req, ctx);
+	}
+
 	doStreamingRequest(
 		req: FireChatCompletionRequest,
-		sgn: AbortSignal,
+		ctx: RequestContext,
 	): FireChatCompletionStreamingResponse {
-		for (let i = 0; i < 100; i++) {
-			if (i > 100) {
-				throw new Error(
-					"Failed to select an existing random model!",
-				);
-			}
-
-			const modelName = selectRandomOption(
-				this.weightedModels,
-			);
-			const modelProvider =
-				this.modelsProvider.get(modelName);
-			if (!modelProvider) {
-				console.error(
-					`Failed to find model provider ${modelName}. Trying again.`,
-				);
-				continue;
-			}
-
-			return modelProvider.doStreamingRequest(req, sgn);
-		}
-
-		throw new Error("Failed to find any valid model provider!");
+		return this.selectRandomModel(ctx).doStreamingRequest(req, ctx);
 	}
 
 	addKeyProvider() {}

@@ -94,6 +94,9 @@ to try and increase your response variety, or between something like Claude Opus
 Claude Sonnet 4, to lower your average request costs, or even between multiple variations
 of the same model, with different processor chains!
 
+There is similarly a `random` processor you can use to
+more easily specifically randomize your processor chains.
+
 ## Running
 
 Git clone the project normally (like you did ST), install deps with `npm i`,
@@ -276,14 +279,86 @@ Applies a regular expression find-and-replace operation on the content of every 
 
 ### Random Processor
 
-A meta-processor that randomly selects one processor from a list to execute. This allows for creating dynamic and varied processing chains.
+A meta-processor that randomly selects one processor from a list to execute.
 
 **`type: "random"`**
 
-| Property        | Type                       | Required | Description                                                         |
-| --------------- |----------------------------| -------- | ------------------------------------------------------------------- |
-| `type`          | `string`                   | Yes      | Must be `"random"`.                                                 |
-| `processorList` | `ProcessorConfiguration[]` | Yes      | An array of other processor configurations to choose from randomly. |
+| Property           | Type                                                   | Required | Description                                                                                                                                                               |
+|--------------------|--------------------------------------------------------|----------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `type`             | `string`                                               | Yes      | Must be `"random"`.                                                                                                                                                       |
+| `processorList`    | `ProcessorConfiguration[]`                             | No       | An array of processor configurations to choose from randomly with equal weights. Either use this or `processorWeights`.                                                   |
+| `processorWeights` | `{ weight: number, config: ProcessorConfiguration }[]` | No       | An array of objects with `weight` (number) and `config` (ProcessorConfiguration) properties for weighted random selection. Overrides `processorList` if both are present. |
+
+
+`processorWeights` usage example:
+
+```yaml
+type: random
+processorWeights:
+  - weight: 2
+    config:
+      type: nosys
+  - weight: 3
+    config:
+      type: nodanglingsys
+```
+
+### No Assistant Messages Processor
+
+Converts all messages following the first assistant message to either user or assistant role
+(based on configuration).
+
+Does not guarantee equivalent behavior to the proper noass extension. But in principle, if
+a preset has no assistant prompts, and the card has a greeting, the first assistant message
+should act as a marker for the beginning of the chat history, and then we have regular noass
+behavior.
+
+**`type: "noass"`**
+
+| Property | Type     | Required | Description                                                           |
+| -------- | -------- | -------- |-----------------------------------------------------------------------|
+| `type`   | `string` | Yes      | Must be `"noass"`.                                                    |
+| `role`   | `string` | Yes      | The role to convert assistant messages to: `"user"` or `"assistant"`. |
+
+### Squash Messages Processor
+
+Combines consecutive messages of the same role(s) into a single message, joining their content with a specified string.
+
+**`type: "squash"`**
+
+| Property      | Type       | Default    | Description                                                                   |
+| ------------- | ---------- |------------|-------------------------------------------------------------------------------|
+| `type`        | `string`   | (Required) | Must be `"squash"`.                                                           |
+| `squashString`| `string`   | `"\n\n"`   | The string used to join the content of consecutive messages.                  |
+| `roles`       | `string[]` | (Required) | Array of roles to squash: `"user"`, `"assistant"`, `"system"`, `"developer"`. |
+
+### Insert Message Processor
+
+Inserts a new message at a specified position in the message array.
+
+**`type: "insertmessage"`**
+
+| Property   | Type     | Required | Description                                                                                |
+| ---------- | -------- | -------- |--------------------------------------------------------------------------------------------|
+| `type`     | `string` | Yes      | Must be `"insertmessage"`.                                                                 |
+| `role`     | `string` | Yes      | The role of the inserted message: `"user"`, `"assistant"`, `"system"`, or `"developer"`.   |
+| `content`  | `string` | Yes      | The content of the message to insert.                                                      |
+| `position` | `number` | Yes      | The position to insert the message at (negative positions work, uses normal splice logic). |
+
+### Chain Processor
+
+A meta-processor that runs multiple processors in sequence as a single processor unit.
+
+Intended for usage with the `random` processor. If you're not using `random`, this will just
+clutter your `config.yaml`.
+
+**`type: "chain"`**
+
+| Property     | Type                         | Required | Description                                               |
+| ------------ | ---------------------------- | -------- | --------------------------------------------------------- |
+| `type`       | `string`                     | Yes      | Must be `"chain"`.                                        |
+| `processors` | `ProcessorConfiguration[]`   | Yes      | An array of processor configurations to run in sequence.  |
+
 
 ---
 
