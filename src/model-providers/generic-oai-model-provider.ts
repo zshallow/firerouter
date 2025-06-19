@@ -1,5 +1,4 @@
 import { ModelProvider } from "../interfaces/model-provider.js";
-import { z } from "zod/v4";
 import { FireChatCompletionRequest } from "../types/fire-chat-completion-request.js";
 import { FireChatCompletionResponse } from "../types/fire-chat-completion-response.js";
 import { EventSourceParserStream } from "eventsource-parser/stream";
@@ -7,73 +6,12 @@ import { UnionKeyProvider } from "../key-providers/union-key-provider.js";
 import { KeyProvider } from "../interfaces/key-provider.js";
 import { FireChatCompletionStreamingResponse } from "../types/fire-chat-completion-streaming-response.js";
 import { GenericOAIModelProviderConfiguration } from "../config.js";
-import { RequestContext } from "../types/request-context";
-
-/**
- * Funny supporting types.
- */
-type GenericOAIRequestContentTextPart = {
-	type: "text";
-	text: string;
-};
-
-type GenericOAIRequestContentPart = GenericOAIRequestContentTextPart;
-
-type GenericOAIRequestContent = string | GenericOAIRequestContentPart[];
-
-type GenericOAIRequestMessage = {
-	role: "system" | "developer" | "user" | "assistant" | "tool";
-	content: GenericOAIRequestContent;
-};
-
-type GenericOAIRequest = {
-	model: string;
-	messages: GenericOAIRequestMessage[];
-	stream: boolean;
-	max_tokens?: number;
-	seed?: number;
-
-	temperature?: number;
-	top_p?: number;
-	top_k?: number;
-	frequency_penalty?: number;
-	presence_penalty?: number;
-	repetition_penalty?: number;
-	min_p?: number;
-	top_a?: number;
-};
-
-const GenericOAIResponseMessageSchema = z.looseObject({
-	role: z.string().optional(),
-	content: z.string().optional(),
-});
-
-const GenericOAIResponseChoiceSchema = z.looseObject({
-	message: GenericOAIResponseMessageSchema.optional(),
-});
-
-const GenericOAIResponseSchema = z.looseObject({
-	choices: z.array(GenericOAIResponseChoiceSchema).optional(),
-});
-
-const GenericOAIStreamingResponseDeltaSchema = z.looseObject({
-	role: z.string().optional(),
-	content: z.string().optional(),
-});
-
-const GenericOAIStreamingResponseChoiceSchema = z.looseObject({
-	index: z.number(),
-	delta: GenericOAIStreamingResponseDeltaSchema.optional(),
-});
-
-const GenericOAIStreamingResponseChunkSchema = z.looseObject({
-	object: z.literal("chat.completion.chunk"),
-	choices: z.array(GenericOAIStreamingResponseChoiceSchema).optional(),
-});
-
-/**
- * Actual code.
- */
+import { RequestContext } from "../types/request-context.js";
+import {
+	GenericOAIRequest,
+	GenericOAIResponseSchema,
+	GenericOAIStreamingResponseChunkSchema,
+} from "../types/oai-types.js";
 
 export class GenericOAIModelProvider implements ModelProvider {
 	keyProvider: UnionKeyProvider;

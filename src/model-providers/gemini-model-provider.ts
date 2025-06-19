@@ -2,96 +2,18 @@ import { ModelProvider } from "../interfaces/model-provider.js";
 import { KeyProvider } from "../interfaces/key-provider.js";
 import { FireChatCompletionRequest } from "../types/fire-chat-completion-request.js";
 import { FireChatCompletionResponse } from "../types/fire-chat-completion-response.js";
-import { z } from "zod/v4";
 import { FireChatCompletionStreamingResponse } from "../types/fire-chat-completion-streaming-response.js";
 import { UnionKeyProvider } from "../key-providers/union-key-provider.js";
 import { EventSourceParserStream } from "eventsource-parser/stream";
 import { GeminiModelProviderConfiguration } from "../config.js";
-import { RequestContext } from "../types/request-context";
-
-/**
- * Funny supporting types.
- */
-
-type GeminiRequestPart = {
-	thought?: boolean;
-	text: string;
-};
-
-type GeminiRequestContent = {
-	role?: "user" | "model";
-	parts: GeminiRequestPart[];
-};
-
-type GeminiRequestSafetySettings = {
-	category:
-		| "HARM_CATEGORY_HARASSMENT"
-		| "HARM_CATEGORY_HATE_SPEECH"
-		| "HARM_CATEGORY_SEXUALLY_EXPLICIT"
-		| "HARM_CATEGORY_DANGEROUS_CONTENT"
-		| "HARM_CATEGORY_CIVIC_INTEGRITY";
-	threshold: "OFF";
-};
-
-type GeminiRequestGenerationConfig = {
-	stopSequences?: string[];
-	maxOutputTokens?: number;
-	temperature?: number;
-	topP?: number;
-	topK?: number;
-	presencePenalty?: number;
-	frequencyPenalty?: number;
-};
-
-type GeminiRequest = {
-	contents: GeminiRequestContent[];
-	safetySettings: GeminiRequestSafetySettings[];
-	systemInstruction?: GeminiRequestContent;
-	generationConfig?: GeminiRequestGenerationConfig;
-};
-
-const GeminiResponsePartsSchema = z.looseObject({
-	text: z.string(),
-});
-
-const GeminiResponseContentSchema = z.looseObject({
-	parts: z.array(GeminiResponsePartsSchema),
-	role: z.literal("model"),
-});
-
-const GeminiResponseCandidateSchema = z.looseObject({
-	content: GeminiResponseContentSchema,
-});
-
-const GeminiResponseSchema = z.looseObject({
-	candidates: z.array(GeminiResponseCandidateSchema),
-});
-
-const GeminiStreamingResponsePartSchema = z.looseObject({
-	text: z.string(),
-});
-
-const GeminiStreamingResponseContentSchema = z.looseObject({
-	role: z.literal("model"),
-	parts: z.array(GeminiStreamingResponsePartSchema),
-});
-
-const GeminiStreamingResponseCandidateSchema = z.looseObject({
-	content: GeminiStreamingResponseContentSchema,
-});
-
-const GeminiStreamingResponseChunkSchema = z.looseObject({
-	candidates: z.array(GeminiStreamingResponseCandidateSchema),
-	modelVersion: z.string(),
-	responseId: z.string(),
-});
-
-/**
- * Actual code.
- *
- * If it looks scary it's not because it IS scary.
- * The typing is just a bit of a struggle.
- */
+import { RequestContext } from "../types/request-context.js";
+import {
+	GeminiRequest,
+	GeminiRequestContent,
+	GeminiRequestPart,
+	GeminiResponseSchema,
+	GeminiStreamingResponseChunkSchema,
+} from "../types/gemini-types.js";
 
 export class GeminiModelProvider implements ModelProvider {
 	config: GeminiModelProviderConfiguration;
