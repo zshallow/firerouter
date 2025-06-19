@@ -9,7 +9,7 @@ export function normalizeWeightedOptions<T>(
 
 	let sum = 0;
 	for (const [, weight] of opts) {
-		if (weight <= 0) {
+		if (!Number.isFinite(weight) || weight <= 0) {
 			throw new Error(
 				"Weights must be non-zero and positive.",
 			);
@@ -24,6 +24,10 @@ export function normalizeWeightedOptions<T>(
 }
 
 export function selectRandomOption<T>(normalizedOpts: WeightedOption<T>[]): T {
+	if (normalizedOpts.length === 0) {
+		throw new Error("Expected at least one option!");
+	}
+
 	const r = Math.random();
 	let acc = 0;
 
