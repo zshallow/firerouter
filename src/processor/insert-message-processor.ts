@@ -15,7 +15,14 @@ export class InsertMessageProcessor implements Processor {
 			content: this.conf.content,
 		};
 
-		req.messages.splice(this.conf.position, 0, message);
+		let position = this.conf.position;
+		if (position < 0) {
+			position = req.messages.length + position + 1;
+		}
+
+		req.messages = req.messages
+			.slice(0, position)
+			.concat(message, ...req.messages.slice(position));
 
 		return req;
 	}
