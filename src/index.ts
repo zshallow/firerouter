@@ -12,6 +12,7 @@ import { modelProviderFactory } from "./factories/model-provider-factory.js";
 import { processorFactory } from "./factories/processor-factory.js";
 import { ProcessedModelProvider } from "./model-providers/processed-model-provider.js";
 import { Processor } from "./interfaces/processor.js";
+import { delayedAsyncIterable } from "./utils/delayed-async-iterable.js";
 
 async function main() {
 	const configFilePath = new URL("../config.yaml", import.meta.url);
@@ -124,10 +125,17 @@ async function main() {
 		}
 
 		if (requestBody.stream) {
-			const chunkIterator = modelProvider.doStreamingRequest(
+			let chunkIterator = modelProvider.doStreamingRequest(
 				requestBody,
 				{ logger: req.log, signal: controller.signal },
 			);
+
+			if (config.streamingInterval > 0) {
+				chunkIterator = delayedAsyncIterable(
+					chunkIterator,
+					config.streamingInterval,
+				);
+			}
 
 			//Ensures we only send headers once and only send them when the request is guaranteed OK.
 			let firstChunk = true;

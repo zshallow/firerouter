@@ -294,6 +294,7 @@ const ProcessorChainConfigurationSchema = z.array(ProcessorConfigurationSchema);
 
 export const ConfigSchema = z.strictObject({
 	port: z.number().default(3000),
+	streamingInterval: z.number().gte(0).default(0),
 	keyProviders: coercedMap(z.string(), KeyProviderConfigurationSchema),
 	modelProviders: coercedMap(
 		z.string(),

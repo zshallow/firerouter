@@ -116,12 +116,13 @@ other than strictly local deployments. It will remain like this.
 
 This is the main configuration object for the entire application.
 
-| Property          | Type                                         | Default       | Description                                                                                                                               |
-| ----------------- |----------------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------|
-| `port`            | `number`                                     | `3000`        | The port number on which the server will listen.                                                                                          |
-| `keyProviders`    | `Map<string, KeyProviderConfiguration>`      | (Required)    | A map of named key providers. The key is a unique name you choose, and the value is the provider's configuration object.                  |
-| `modelProviders`  | `Map<string, ModelProviderConfiguration>`    | (Required)    | A map of named model providers. The key is a unique name you choose (e.g., "gpt-4-turbo"), and the value is the provider's configuration. |
-| `processorChains` | `Map<string, ProcessorChainConfiguration>`   | `(empty map)` | A map of named processor chains. The key is a unique name, and the value is an array of processor configurations.                         |
+| Property             | Type                                       | Default       | Description                                                                                                                               |
+|----------------------|--------------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| `port`               | `number`                                   | `3000`        | The port number on which the server will listen.                                                                                          |
+| `keyProviders`       | `Map<string, KeyProviderConfiguration>`    | (Required)    | A map of named key providers. The key is a unique name you choose, and the value is the provider's configuration object.                  |
+| `modelProviders`     | `Map<string, ModelProviderConfiguration>`  | (Required)    | A map of named model providers. The key is a unique name you choose (e.g., "gpt-4-turbo"), and the value is the provider's configuration. |
+| `processorChains`    | `Map<string, ProcessorChainConfiguration>` | `(empty map)` | A map of named processor chains. The key is a unique name, and the value is an array of processor configurations.                         |
+| `streamingInterval`  | `number`                                    | `0`            | Forces every token in the stream to wait for `streamingInterval` to flush to the client.                                                  |
 
 ---
 
@@ -385,6 +386,7 @@ modelProviders:
     type: genericoai
     modelName: gpt-4-1106-preview
     processorChain: strict-chat
+    url: "https://api.openai.com/v1/chat/completions"
     
   mistral-7b:
     type: openrouter
