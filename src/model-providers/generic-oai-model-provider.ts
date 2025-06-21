@@ -99,20 +99,15 @@ export class GenericOAIModelProvider implements ModelProvider {
 	): FireChatCompletionStreamingResponse {
 		const key = this.keyProvider.provide();
 
-		const response = await fetch(
-			"https://openrouter.ai/api/v1/chat/completions",
-			{
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${key}`,
-				},
-				body: JSON.stringify(
-					this.convertRequestBody(req),
-				),
-				signal: ctx.signal,
+		const response = await fetch(this.config.url, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${key}`,
 			},
-		);
+			body: JSON.stringify(this.convertRequestBody(req)),
+			signal: ctx.signal,
+		});
 
 		if (!response.ok || !response.body) {
 			ctx.logger.error(
