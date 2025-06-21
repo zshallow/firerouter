@@ -103,6 +103,8 @@ Git clone the project normally (like you did ST), install deps with `npm i`,
 build with `npm run build` and run with `npm run start`. Server listens by default
 on `http://127.0.0.1:3000/v1`.
 
+Make sure to copy `config.example.yaml` into `config.yaml` and fill out your configuration.
+
 Remember to rebuild after git pulling!
 
 ## Auth
