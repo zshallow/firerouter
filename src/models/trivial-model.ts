@@ -1,9 +1,9 @@
-import { ModelProvider } from "../interfaces/model-provider.js";
+import { Model } from "../interfaces/model";
 import { FireChatCompletionResponse } from "../types/fire-chat-completion-response";
 import { FireChatCompletionStreamingResponse } from "../types/fire-chat-completion-streaming-response";
 import { TrivialModelProviderConfiguration } from "../config.js";
 
-export class TrivialModelProvider implements ModelProvider {
+export class TrivialModel implements Model {
 	output: string;
 
 	doRequest(): Promise<FireChatCompletionResponse> {
@@ -47,6 +47,4 @@ export class TrivialModelProvider implements ModelProvider {
 		console.log("Initializing a new trivial model provider!");
 		this.output = config.output;
 	}
-
-	addKeyProvider() {}
 }

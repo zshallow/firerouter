@@ -1,3 +1,3 @@
 export interface KeyProvider {
-	provide(): string;
+	withKey<T>(sgn: AbortSignal, func: (key: string) => T): T;
 }

@@ -6,7 +6,7 @@ common OpenAI-like API (with streaming support!).
 
 Look at this SillyTavern Custom OpenAI configuration and the Available Models list:
 
-![dropdown](https://files.catbox.moe/46b9az.png)
+![dropdown](https://files.catbox.moe/cd6g4c.png)
 
 The URL points to my local firerouter instance. It offers ST two models.
 GPT 4.1 in its raw form, and GPT 4.1 with temperature 2. How does it do this?
@@ -15,52 +15,74 @@ First, the `modelsProvider` in the `config.yaml` looks like this:
 
 ```yaml
 modelProviders:
-  gpt-4.1-raw:
-    type: "openrouter"
-    modelName: "openai/gpt-4.1"
-  gpt-4-1-with-temp-2:
-    type: "openrouter"
-    modelName: "openai/gpt-4.1"
-    processorChain: myCustomChainThatSetsTempTo2
+  or:
+    type: "genericoai"
+    url: "https://openrouter.ai/api/v1"
+    keyProvider: "myORKey"
+    models:
+      gpt-4.1-raw:
+        name: "openai/gpt-4.1"
+      gpt-4.1-with-temp-2:
+        name: "openai/gpt-4.1"
+        processor: setTempTo2
 ```
 
 As you can see, the names used here are what's exposed on the other end to ST.
 In terms of configuration proper, they're both just OpenRouter GPT 4.1, except
-the latter has a `processorChain`.
+the latter has a `processor`.
 
-A processor chain is just a sequence of processors that alter a request before it's sent.
+A processor is a thing that alters a request before it's sent.
 
-This is what `myCustomChainThatSetsTempTo2` looks like in the `config.yaml`:
+This is what `setTempTo2` looks like in the `config.yaml`:
 
 ```yaml
-processorChains:
-  myCustomChainThatSetsTempTo2:
-    - type: "overridesamplers"
-      temperature: 2
-    - type: "nosys"
+processors:
+  setTempTo2:
+    type: "overridesamplers"
+    temperature: 2
 ```
 
-"overridesamplers" does what it sounds like it does. "nosys" changes all system messages to
-user role. These processors are guaranteed to run in order, and you won't be stopped from doing
-something stupid like overriding temp 5 times before settling on a number you like, or lying
-about what your processors do in their names.
+"overridesamplers" does what it sounds like it does. You can run multiple
+processors randomly or in order, and you won't be stopped from doing
+something stupid like overriding temp 5 times before settling on a number
+you like, or lying about what your processors do in their names.
 
-Finally, you configure your keys by distributing keyProviders between models. Like this:
+Finally, you configure your keys by defining keyProviders. Like this:
 
 ```yaml
 keyProviders:
   myORKey:
     type: "literal"
     key: "sk-or-v1-your-actual-key-here-lol"
-    modelTargets:
-      - "^gpt"
 ```
 
-The `modelTargets` field is a regex you use to filter out models you've configured and assign
-them keys. "^gpt" in this case means "every model with a name that starts with gpt."
-For another example, just `openrouter` will assign the key to every model with "openrouter" in
-its name. `.*` assigns your key to every model (very useful if, for example, you already only
-use openrouter).
+You can also just inline your keyProvider and your processors instead of
+defining them on the top level and then invoking them by their names.
+
+Like this:
+
+```yaml
+modelProviders:
+  or:
+    type: "genericoai"
+    url: "https://openrouter.ai/api/v1"
+    keyProvider:
+      type: "literal"
+      key: "sk-or-v1-your-actual-key-here-lol"
+    models:
+      gpt-4.1-raw:
+        name: "openai/gpt-4.1"
+      gpt-4.1-with-temp-2:
+        name: "openai/gpt-4.1"
+        processor:
+          - type: "whitespace" # cleans up most whitespace; breaks ASCII and code
+          - type: "overridesamplers"
+            temperature: 2
+```
+
+And, as you can also notice above, your model's `processor` (or your top level processor)
+can be an array of `ProcessorConfiguration`! (This is a shorthand syntax for creating
+ChainProcessors. Feel free to use the normal form if YAML object arrays scare you).
 
 ## Randomization
 
@@ -68,22 +90,29 @@ Consider now:
 
 ```yaml
 modelProviders:
-  gpt-4.1:
-    type: "openrouter"
-    modelName: "openai/gpt-4.1"
-  qwen-3-32b:
-    type: "openrouter"
-    modelName: "qwen/qwen3-32b"
+  or:
+    type: "genericoai"
+    url: "https://openrouter.ai/api/v1"
+    keyProvider:
+      type: "literal"
+      key: "sk-or-v1-your-actual-key-here-lol"
+      models: 
+        gpt-4.1:
+          name: "openai/gpt-4.1"
+        qwen-3-32b:
+          name: "qwen/qwen3-32b"
+
   random:
     type: "random"
     modelList: # models are weighted equally if you use a modelList
-      - gpt-4.1
-      - qwen-3-32b
+      - or/gpt-4.1
+      - or/qwen-3-32b
+
   random-2:
     type: "random"
     modelWeights: # or you can assign arbitrary positive weights!
-      "gpt-4.1": 0.4
-      "qwen-3-32b": 0.6
+      "or/gpt-4.1": 0.4
+      "or/qwen-3-32b": 0.6
 ```
 
 The `random` provider type is basically the true reason this project exists: it allows for random
@@ -118,13 +147,13 @@ other than strictly local deployments. It will remain like this.
 
 This is the main configuration object for the entire application.
 
-| Property             | Type                                       | Default       | Description                                                                                                                               |
-|----------------------|--------------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------|
-| `port`               | `number`                                   | `3000`        | The port number on which the server will listen.                                                                                          |
-| `keyProviders`       | `Map<string, KeyProviderConfiguration>`    | (Required)    | A map of named key providers. The key is a unique name you choose, and the value is the provider's configuration object.                  |
-| `modelProviders`     | `Map<string, ModelProviderConfiguration>`  | (Required)    | A map of named model providers. The key is a unique name you choose (e.g., "gpt-4-turbo"), and the value is the provider's configuration. |
-| `processorChains`    | `Map<string, ProcessorChainConfiguration>` | `(empty map)` | A map of named processor chains. The key is a unique name, and the value is an array of processor configurations.                         |
-| `streamingInterval`  | `number`                                    | `0`            | Forces every token in the stream to wait for `streamingInterval` to flush to the client.                                                  |
+| Property            | Type                                       | Default       | Description                                                                                                                               |
+|---------------------|--------------------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| `port`              | `number`                                   | `3000`        | The port number on which the server will listen.                                                                                          |
+| `keyProviders`      | `Map<string, KeyProviderConfiguration>`    | `(empty map)`  | A map of named key providers. The key is a unique name you choose, and the value is the provider's configuration object.                  |
+| `modelProviders`    | `Map<string, ModelProviderConfiguration>`  | (Required)    | A map of named model providers. The key is a unique name you choose (e.g., "gpt-4-turbo"), and the value is the provider's configuration. |
+| `processors`        | `Map<string, ProcessorConfiguration>` | `(empty map)` | A map of named processor chains. The key is a unique name, and the value is an array of processor configurations.                         |
+| `streamingInterval` | `number`                                    | `0`           | Forces every character in the stream to wait for `streamingInterval` to flush to the client.                                              |
 
 ---
 
@@ -139,7 +168,6 @@ Loads an API key from a system environment variable.
 | Property       | Type       | Required | Description                                                                            |
 | -------------- | ---------- | -------- |----------------------------------------------------------------------------------------|
 | `type`         | `string`   | Yes      | Must be `"environment"`.                                                               |
-| `modelTargets` | `string[]` | Yes      | A list of regexes that filter the models in `modelProviders` that this key applies to. |
 | `envVar`       | `string`   | Yes      | The name of the environment variable to read the key from.                             |
 
 ### Literal Key Provider
@@ -151,18 +179,25 @@ Uses a key that is directly embedded in the configuration file.
 | Property       | Type       | Required | Description                                                                 |
 | -------------- | ---------- | -------- | --------------------------------------------------------------------------- |
 | `type`         | `string`   | Yes      | Must be `"literal"`.                                                        |
-| `modelTargets` | `string[]` | Yes      | A list of regexes that filter the models in `modelProviders` that this key applies to. |
 | `key`          | `string`   | Yes      | The actual API key string.                                                  |
 
 ---
+
+## Model Configuration
+
+| Property    | Type                              | Required | Description                                                                                                             |
+|-------------|-----------------------------------|----------|-------------------------------------------------------------------------------------------------------------------------|
+| `name`       | `string`                          | Yes      | The model name on the API firerouter is consuming (like OpenRouter).                                                    |
+| `processor` | `string` or ProcessorConfiguration | No       | The name of a `processor` (defined in the top-level `processors` map) or a ProcessorConfiguration to apply to requests. |
+
 
 ## Model Providers
 
 ### Base Properties
 
-| Property         | Type     | Required | Description                                                                                           |
-| ---------------- | -------- | -------- | ----------------------------------------------------------------------------------------------------- |
-| `processorChain` | `string` | No       | The name of a `processorChain` (defined in the top-level `processorChains` map) to apply to requests. |
+| Property         | Type                                                          | Required | Description                                                                                                             |
+| ---------------- |---------------------------------------------------------------| -------- |-------------------------------------------------------------------------------------------------------------------------|
+| `keyProvider` | `string` or `KeyProviderConfiguration` | (Required)                  | A key provider, either named or inline. MUST be present even if the provider requires no keys.                          |
 
 ### Generic OpenAI-Compatible Provider
 
@@ -171,22 +206,12 @@ or other compatible services.
 
 **`type: "genericoai"`**
 
-| Property    | Type     | Default                                      | Description                                                |
-| ----------- | -------- |----------------------------------------------|------------------------------------------------------------|
-| `type`      | `string` | (Required)                                   | Must be `"genericoai"`.                                    |
-| `url`       | `string` | `https://api.openai.com/v1/chat/completions` | The full URL to the chat completions endpoint.             |
-| `modelName` | `string` | (Required)                                   | The name of the model to use (e.g., `gpt-4-1106-preview`). |
+| Property     | Type                                  | Default                     | Description                            |
+|--------------|---------------------------------------|-----------------------------|----------------------------------------|
+| `type`       | `string`                              | (Required)                  | Must be `"genericoai"`.                |
+| `url`        | `string`                              | `https://api.openai.com/v1` | The API URL up to /v1                  |
+| `models`     | `Map<string, ModelConfiguration>`     | (Required)                  | The models to load under this provider. |
 
-### OpenRouter Provider
-
-A dedicated provider for connecting to [OpenRouter](https://openrouter.ai/).
-
-**`type: "openrouter"`**
-
-| Property    | Type     | Required | Description                                               |
-| ----------- | -------- | -------- |-----------------------------------------------------------|
-| `type`      | `string` | Yes      | Must be `"openrouter"`.                                   |
-| `modelName` | `string` | Yes      | The OpenRouter model name (e.g., `mistralai/mistral-7b`). |
 
 ### Gemini Provider
 
@@ -198,11 +223,14 @@ A dedicated provider for connecting to Google's Gemini models.
 | ----------- | -------- | ---------------------------------------------------------- |-----------------------------------------------------------|
 | `type`      | `string` | (Required)                                                 | Must be `"gemini"`.                                       |
 | `url`       | `string` | `https://generativelanguage.googleapis.com/v1beta/models`  | The base URL for the Gemini API.                          |
-| `modelName` | `string` | (Required)                                                 | The name of the Gemini model to use (e.g., `gemini-pro`). |
+| `models` | `Map<string, ModelConfiguration>` | (Required)                                   | The models to load under this provider. |
 
 ### Random Model Provider
 
 A meta-provider that randomly selects one of its configured models for each request, optionally using weights.
+
+Requires a `keyProvider`, even though it won't be used. Just give a fake made up
+key to love and cherish.
 
 **`type: "random"`**
 
@@ -216,12 +244,15 @@ A meta-provider that randomly selects one of its configured models for each requ
 
 A simple provider for testing and debugging. It responds with a fixed, pre-defined sentence.
 
+Requires a `keyProvider`, even though it won't be used. Just give a fake made up
+key to love and cherish.
+
 **`type: "trivial"`**
 
-| Property | Type     | Default                                              | Description                                   |
-| -------- | -------- |------------------------------------------------------| --------------------------------------------- |
-| `type`   | `string` | (Required)                                           | Must be `"trivial"`.                          |
-| `output` | `string` | `Yahallo! Some extra padding to make this longer...` | The static string to return in every response. |
+| Property | Type     | Default                                                | Description                                   |
+| -------- | -------- |--------------------------------------------------------| --------------------------------------------- |
+| `type`   | `string` | (Required)                                             | Must be `"trivial"`.                          |
+| `output` | `string` | `Yahallo! Some extra padding to make this longer lol.` | The static string to return in every response. |
 
 ---
 
@@ -348,6 +379,24 @@ Inserts a new message at a specified position in the message array.
 | `content`  | `string` | Yes      | The content of the message to insert.                                                      |
 | `position` | `number` | Yes      | The position to insert the message at (negative positions work, uses normal splice logic). |
 
+### Whitespace Processor
+
+Does common sense whitespace processing on prompts.
+
+Specifically, for every segment involving two or more sequential whitespace characters:
+- if it contains two newlines, the segment is converted into just the two newlines
+- if it contains a newline, the segment is converted into just the newline
+- if it contains no newlines, it becomes a single space
+
+Obviously breaks code formatting and ASCII, but solid for generic RPing.
+
+**`type: "whitespace"`**
+
+| Property   | Type     | Required | Description                                                                                |
+| ---------- | -------- | -------- |--------------------------------------------------------------------------------------------|
+| `type`     | `string` | Yes      | Must be `"whitespace"`.                                                                    |
+
+
 ### Chain Processor
 
 A meta-processor that runs multiple processors in sequence as a single processor unit.
@@ -361,55 +410,4 @@ clutter your `config.yaml`.
 | ------------ | ---------------------------- | -------- | --------------------------------------------------------- |
 | `type`       | `string`                     | Yes      | Must be `"chain"`.                                        |
 | `processors` | `ProcessorConfiguration[]`   | Yes      | An array of processor configurations to run in sequence.  |
-
-
----
-
-## Example Configuration (YAML)
-
-```yaml
-# config.yaml
-
-port: 3000
-
-keyProviders:
-  oai-key:
-    type: environment
-    modelTargets:
-      - furbo
-    envVar: MY_OAI_KEY
-  or-key:
-    type: literal
-    modelTargets:
-      - mistral
-
-modelProviders:
-  furbo:
-    type: genericoai
-    modelName: gpt-4-1106-preview
-    processorChain: strict-chat
-    url: "https://api.openai.com/v1/chat/completions"
-    
-  mistral-7b:
-    type: openrouter
-    modelName: mistralai/mistral-7b
-
-  random-picker:
-    type: random
-    modelWeights:
-      gpt-4-turbo: 1 # Lower weight, less likely
-      mistral-7b: 3  # Higher weight, more likely
-
-processorChains:
-  # A chain to enforce strict chat formatting and sampling
-  strict-chat:
-    # First, convert all system messages to user messages
-    - type: nosys
-    # Then, override any client-sent samplers with these fixed values
-    - type: overridesamplers
-      temperature: 0.7
-      topP: 0.9
-      # Explicitly remove topK if the client sends it
-      topK: "unset"
-```
 

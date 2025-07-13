@@ -9,10 +9,26 @@ import { NoassProcessor } from "../processor/noass-processor.js";
 import { SquashProcessor } from "../processor/squash-processor.js";
 import { ChainProcessor } from "../processor/chain-processor.js";
 import { InsertMessageProcessor } from "../processor/insert-message-processor.js";
-import { WeightedOption } from "../utils/random-selection-with-weights";
+import { WeightedOption } from "../utils/random-selection-with-weights.js";
+import { WhitespaceProcessor } from "../processor/whitespace-processor.js";
 
-class ProcessorFactory {
+class ProcessorRegistry {
+	private globalProcessors: Map<string, Processor>;
+
+	constructor() {
+		this.globalProcessors = new Map();
+	}
+
 	makeProcessor(conf: ProcessorConfiguration): Processor {
+		if (Array.isArray(conf)) {
+			const chainConf = conf as ProcessorConfiguration[];
+			return new ChainProcessor(
+				chainConf.map((config) =>
+					this.makeProcessor(config),
+				),
+			);
+		}
+
 		switch (conf.type) {
 			case "nodanglingsys": {
 				return new NoDanglingSysProcessor();
@@ -83,8 +99,28 @@ class ProcessorFactory {
 			case "insertmessage": {
 				return new InsertMessageProcessor(conf);
 			}
+			case "whitespace": {
+				return new WhitespaceProcessor();
+			}
 		}
+	}
+
+	registerProcessor(name: string, processor: Processor): void {
+		this.globalProcessors.set(name, processor);
+	}
+
+	getProcessor(conf: string | ProcessorConfiguration): Processor {
+		if (typeof conf !== "string") {
+			return this.makeProcessor(conf);
+		}
+
+		const keyProvider = this.globalProcessors.get(conf);
+		if (keyProvider === undefined) {
+			throw new Error(`Couldn't find keyProvider ${conf}!`);
+		}
+
+		return keyProvider;
 	}
 }
 
-export const processorFactory = new ProcessorFactory();
+export const processorRegistry = new ProcessorRegistry();

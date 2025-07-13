@@ -9,7 +9,6 @@ import { SomeType } from "zod/v4/core";
 // Loads key from envvar
 const SimpleEnvironmentKeyProviderConfigurationSchema = z.strictObject({
 	type: z.literal("environment"),
-	modelTargets: z.array(z.string()),
 	envVar: z.string(),
 });
 
@@ -20,7 +19,6 @@ export type SimpleEnvironmentKeyProviderConfiguration = z.infer<
 // Loads key from the literal key you just put in the config file
 const SimpleLiteralKeyProviderConfigurationSchema = z.strictObject({
 	type: z.literal("literal"),
-	modelTargets: z.array(z.string()),
 	key: z.string(),
 });
 
@@ -35,104 +33,6 @@ const KeyProviderConfigurationSchema = z.discriminatedUnion("type", [
 
 export type KeyProviderConfiguration = z.infer<
 	typeof KeyProviderConfigurationSchema
->;
-
-/**
- * ModelProvider configuration
- */
-
-const BaseModelProviderConfigurationSchema = z.strictObject({
-	processorChain: z.string().optional(),
-});
-
-// Generic OAI. Use with OAI, llamacpp, etc.
-const GenericOAIModelProviderConfigurationSchema =
-	BaseModelProviderConfigurationSchema.extend({
-		type: z.literal("genericoai"),
-		url: z
-			.string()
-			.default("https://api.openai.com/v1/chat/completions"),
-		modelName: z.string(),
-	});
-
-export type GenericOAIModelProviderConfiguration = z.infer<
-	typeof GenericOAIModelProviderConfigurationSchema
->;
-
-// OpenRouter
-const OpenRouterModelProviderConfigurationSchema =
-	BaseModelProviderConfigurationSchema.extend({
-		type: z.literal("openrouter"),
-		modelName: z.string(),
-	});
-
-export type OpenRouterModelProviderConfiguration = z.infer<
-	typeof OpenRouterModelProviderConfigurationSchema
->;
-
-// Gemini
-const GeminiModelProviderConfigurationSchema =
-	BaseModelProviderConfigurationSchema.extend({
-		type: z.literal("gemini"),
-		url: z
-			.string()
-			.default(
-				"https://generativelanguage.googleapis.com/v1beta/models",
-			),
-		modelName: z.string(),
-	});
-
-export type GeminiModelProviderConfiguration = z.infer<
-	typeof GeminiModelProviderConfigurationSchema
->;
-
-const RandomModelProviderConfigurationSchema =
-	BaseModelProviderConfigurationSchema.extend({
-		type: z.literal("random"),
-		modelList: z.array(z.string()).optional(),
-		modelWeights: coercedMap(z.string(), z.number()).optional(),
-	}).refine(
-		function (conf) {
-			return (
-				conf.modelList !== undefined ||
-				conf.modelWeights !== undefined
-			);
-		},
-		{
-			error: "At least one of modelList or modelWeights must be defined!",
-		},
-	);
-
-export type RandomModelProviderConfiguration = z.infer<
-	typeof RandomModelProviderConfigurationSchema
->;
-
-// Trivial model provider that responds with a fixed sentence.
-// For testing if your server is accessible.
-const TrivialModelProviderConfigurationSchema =
-	BaseModelProviderConfigurationSchema.extend({
-		type: z.literal("trivial"),
-		output: z
-			.string()
-			.default(
-				"Yahallo! Some extra padding to make this longer lol.",
-			),
-	});
-
-export type TrivialModelProviderConfiguration = z.infer<
-	typeof TrivialModelProviderConfigurationSchema
->;
-
-const ModelProviderConfigurationSchema = z.discriminatedUnion("type", [
-	TrivialModelProviderConfigurationSchema,
-	GenericOAIModelProviderConfigurationSchema,
-	OpenRouterModelProviderConfigurationSchema,
-	RandomModelProviderConfigurationSchema,
-	GeminiModelProviderConfigurationSchema,
-]);
-
-export type ModelProviderConfiguration = z.infer<
-	typeof ModelProviderConfigurationSchema
 >;
 
 /**
@@ -270,23 +170,120 @@ const ChainProcessorConfigurationSchema = z.strictObject({
 	),
 });
 
-const ProcessorConfigurationSchema = z.discriminatedUnion("type", [
-	NoDanglingSysProcessorConfigurationSchema,
-	NoSysProcessorConfigurationSchema,
-	OverrideSamplersProcessorConfigurationSchema,
-	RegexProcessorConfigurationSchema,
-	RandomProcessorConfigurationSchema,
-	SquashProcessorConfigurationSchema,
-	NoassProcessorConfigurationSchema,
-	InsertMessageProcessorConfigurationSchema,
-	ChainProcessorConfigurationSchema,
+const WhitespaceProcessorConfigurationSchema = z.strictObject({
+	type: z.literal("whitespace"),
+});
+
+const ProcessorConfigurationSchema = z.union([
+	z.discriminatedUnion("type", [
+		NoDanglingSysProcessorConfigurationSchema,
+		NoSysProcessorConfigurationSchema,
+		OverrideSamplersProcessorConfigurationSchema,
+		RegexProcessorConfigurationSchema,
+		RandomProcessorConfigurationSchema,
+		SquashProcessorConfigurationSchema,
+		NoassProcessorConfigurationSchema,
+		InsertMessageProcessorConfigurationSchema,
+		ChainProcessorConfigurationSchema,
+		WhitespaceProcessorConfigurationSchema,
+	]),
+	z.array(z.lazy((): SomeType => ProcessorConfigurationSchema)),
 ]);
 
 export type ProcessorConfiguration = z.infer<
 	typeof ProcessorConfigurationSchema
 >;
 
-const ProcessorChainConfigurationSchema = z.array(ProcessorConfigurationSchema);
+/**
+ * ModelProvider configuration
+ */
+
+const ModelConfigurationSchema = z.strictObject({
+	name: z.string(),
+	processor: z
+		.union([z.string(), ProcessorConfigurationSchema])
+		.optional(),
+});
+
+const BaseModelProviderConfigurationSchema = z.strictObject({
+	keyProvider: z.union([z.string(), KeyProviderConfigurationSchema]),
+});
+
+// Generic OAI. Use with OAI, llamacpp, etc.
+const GenericOAIModelProviderConfigurationSchema =
+	BaseModelProviderConfigurationSchema.extend({
+		type: z.literal("genericoai"),
+		models: coercedMap(z.string(), ModelConfigurationSchema),
+		url: z.string().default("https://api.openai.com/v1"),
+	});
+
+export type GenericOAIModelProviderConfiguration = z.infer<
+	typeof GenericOAIModelProviderConfigurationSchema
+>;
+
+// Gemini
+const GeminiModelProviderConfigurationSchema =
+	BaseModelProviderConfigurationSchema.extend({
+		type: z.literal("gemini"),
+		models: coercedMap(z.string(), ModelConfigurationSchema),
+		url: z
+			.string()
+			.default(
+				"https://generativelanguage.googleapis.com/v1beta/models",
+			),
+	});
+
+export type GeminiModelProviderConfiguration = z.infer<
+	typeof GeminiModelProviderConfigurationSchema
+>;
+
+const RandomModelProviderConfigurationSchema =
+	BaseModelProviderConfigurationSchema.extend({
+		type: z.literal("random"),
+		modelList: z.array(z.string()).optional(),
+		modelWeights: coercedMap(z.string(), z.number()).optional(),
+	}).refine(
+		function (conf) {
+			return (
+				conf.modelList !== undefined ||
+				conf.modelWeights !== undefined
+			);
+		},
+		{
+			error: "At least one of modelList or modelWeights must be defined!",
+		},
+	);
+
+export type RandomModelProviderConfiguration = z.infer<
+	typeof RandomModelProviderConfigurationSchema
+>;
+
+// Trivial model provider that responds with a fixed sentence.
+// For testing if your server is accessible.
+const TrivialModelProviderConfigurationSchema =
+	BaseModelProviderConfigurationSchema.extend({
+		type: z.literal("trivial"),
+		output: z
+			.string()
+			.default(
+				"Yahallo! Some extra padding to make this longer lol.",
+			),
+	});
+
+export type TrivialModelProviderConfiguration = z.infer<
+	typeof TrivialModelProviderConfigurationSchema
+>;
+
+const ModelProviderConfigurationSchema = z.discriminatedUnion("type", [
+	TrivialModelProviderConfigurationSchema,
+	GenericOAIModelProviderConfigurationSchema,
+	RandomModelProviderConfigurationSchema,
+	GeminiModelProviderConfigurationSchema,
+]);
+
+export type ModelProviderConfiguration = z.infer<
+	typeof ModelProviderConfigurationSchema
+>;
 
 /**
  * Whole app configuration
@@ -295,13 +292,16 @@ const ProcessorChainConfigurationSchema = z.array(ProcessorConfigurationSchema);
 export const ConfigSchema = z.strictObject({
 	port: z.number().default(3000),
 	streamingInterval: z.number().gte(0).default(0),
-	keyProviders: coercedMap(z.string(), KeyProviderConfigurationSchema),
 	modelProviders: coercedMap(
 		z.string(),
 		ModelProviderConfigurationSchema,
 	),
-	processorChains: coercedMap(
+	processors: coercedMap(
 		z.string(),
-		ProcessorChainConfigurationSchema,
+		ProcessorConfigurationSchema,
+	).default(new Map()),
+	keyProviders: coercedMap(
+		z.string(),
+		KeyProviderConfigurationSchema,
 	).default(new Map()),
 });

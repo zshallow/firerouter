@@ -18,6 +18,7 @@ export type GenericOAIRequest = {
 	messages: GenericOAIRequestMessage[];
 	stream: boolean;
 	max_tokens?: number;
+	max_completion_tokens?: number;
 	seed?: number;
 
 	temperature?: number;
@@ -50,4 +51,12 @@ const GenericOAIStreamingResponseChoiceSchema = z.looseObject({
 export const GenericOAIStreamingResponseChunkSchema = z.looseObject({
 	object: z.literal("chat.completion.chunk"),
 	choices: z.array(GenericOAIStreamingResponseChoiceSchema).optional(),
+});
+
+export const GenericOAIModelListSchema = z.looseObject({
+	data: z.array(
+		z.looseObject({
+			id: z.string(),
+		}),
+	),
 });

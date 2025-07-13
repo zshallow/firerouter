@@ -1,18 +1,15 @@
 import fs from "fs/promises";
+import cors from "@fastify/cors";
 import YAML from "yaml";
 import { ConfigSchema } from "./config.js";
 import { FireChatCompletionRequestSchema } from "./types/fire-chat-completion-request.js";
 import { encodeData } from "eventsource-encoder";
-import { ModelProvider } from "./interfaces/model-provider.js";
 import Fastify from "fastify";
-import { RegexMatchable, UnionMatchable } from "./utils/matchable.js";
-import { ChainProcessor } from "./processor/chain-processor.js";
-import { keyProviderFactory } from "./factories/key-provider-factory.js";
-import { modelProviderFactory } from "./factories/model-provider-factory.js";
-import { processorFactory } from "./factories/processor-factory.js";
-import { ProcessedModelProvider } from "./model-providers/processed-model-provider.js";
-import { Processor } from "./interfaces/processor.js";
+import { keyProviderRegistry } from "./registries/key-provider-registry.js";
+import { modelRegistry } from "./registries/model-registry.js";
+import { processorRegistry } from "./registries/processor-registry.js";
 import { delayedAsyncIterable } from "./utils/delayed-async-iterable.js";
+import { splitChunks } from "./utils/split-chunks.js";
 
 async function main() {
 	const configFilePath = new URL("../config.yaml", import.meta.url);
@@ -21,68 +18,35 @@ async function main() {
 	});
 	const config = ConfigSchema.parse(YAML.parse(configFile));
 
-	const processorChains: Map<string, Processor> = new Map();
-	for (const [name, processorChainConfig] of config.processorChains) {
-		const processorChain = new ChainProcessor(
-			processorChainConfig.map(function (processorConfig) {
-				return processorFactory.makeProcessor(
-					processorConfig,
-				);
-			}),
+	for (const [name, processorConfig] of config.processors) {
+		processorRegistry.registerProcessor(
+			name,
+			processorRegistry.makeProcessor(processorConfig),
 		);
-
-		processorChains.set(name, processorChain);
 	}
 
-	const modelProviders: Map<string, ModelProvider> = new Map();
-	for (const [name, modelConfig] of config.modelProviders) {
-		let modelProvider: ModelProvider =
-			modelProviderFactory.makeModelProvider(modelConfig, {
-				modelsProvider: modelProviders,
-			});
-
-		if (modelConfig.processorChain) {
-			const chain = processorChains.get(
-				modelConfig.processorChain,
-			);
-			if (chain === undefined) {
-				throw new Error(
-					`Could not find chain ${modelConfig.processorChain}`,
-				);
-			}
-
-			modelProvider = new ProcessedModelProvider(
-				modelProvider,
-				chain,
-			);
-		}
-
-		modelProviders.set(name, modelProvider);
+	for (const [name, keyProviderConfig] of config.keyProviders) {
+		keyProviderRegistry.registerKeyProvider(
+			name,
+			keyProviderRegistry.makeKeyProvider(keyProviderConfig),
+		);
 	}
 
-	for (const [, keyConfig] of config.keyProviders) {
-		const keyProvider =
-			keyProviderFactory.makeKeyProvider(keyConfig);
-
-		const m = new UnionMatchable(
-			keyConfig.modelTargets.map(
-				(s) => new RegexMatchable(new RegExp(s)),
-			),
-		);
-
-		for (const [name, modelProvider] of modelProviders) {
-			if (m.match(name)) {
-				modelProvider.addKeyProvider(keyProvider);
-			}
-		}
+	for (const [name, modelProviderConfig] of config.modelProviders) {
+		modelRegistry.registerModels(name, modelProviderConfig);
 	}
 
 	const fastify = Fastify({
 		logger: true,
 	});
 
+	await fastify.register(cors, {
+		origin: "*",
+		methods: ["GET", "POST", "OPTIONS"],
+	});
+
 	fastify.get("/v1/models", function () {
-		const modelsList = Array.from(modelProviders.keys())
+		const modelsList = Array.from(modelRegistry.models.keys())
 			.sort()
 			.map((name) => {
 				return {
@@ -106,6 +70,7 @@ async function main() {
 			if (req.raw.aborted) {
 				// Yes, aborted is deprecated. But destroyed...doesn't work??? Lol.
 				// I love the nodejs standard library.
+				// GIVE ME AN ABORTSIGNAL DAMN IT
 				fastify.log.debug(
 					"Request cancelled by client!",
 				);
@@ -117,53 +82,68 @@ async function main() {
 			req.body,
 		);
 
-		const modelProvider = modelProviders.get(requestBody.model);
+		console.debug("Raw request body!");
+		console.debug(YAML.stringify(requestBody));
+
+		const modelProvider = modelRegistry.models.get(
+			requestBody.model,
+		);
+
 		if (!modelProvider) {
 			throw new Error(
 				"Bad request: model ${requestBody.model} not found!",
 			);
 		}
 
+		const ctx = { logger: req.log, signal: controller.signal };
+
 		if (requestBody.stream) {
 			let chunkIterator = modelProvider.doStreamingRequest(
 				requestBody,
-				{ logger: req.log, signal: controller.signal },
+				ctx,
 			);
 
 			if (config.streamingInterval > 0) {
 				chunkIterator = delayedAsyncIterable(
-					chunkIterator,
+					splitChunks(chunkIterator),
 					config.streamingInterval,
 				);
 			}
 
-			//Ensures we only send headers once and only send them when the request is guaranteed OK.
-			let firstChunk = true;
+			res.raw.writeHead(200, {
+				"Content-Type": "text/event-stream",
+				"Access-Control-Allow-Origin": "*",
+			});
 
-			for await (const chunk of chunkIterator) {
-				if (firstChunk) {
-					res.status(200);
-					res.header(
-						"Content-Type",
-						"text/event-stream",
+			try {
+				for await (const chunk of chunkIterator) {
+					res.raw.write(
+						encodeData(
+							JSON.stringify(chunk),
+						),
 					);
-					firstChunk = false;
 				}
-
-				res.raw.write(
-					encodeData(JSON.stringify(chunk)),
-				);
+			} catch (e) {
+				req.log.error(e, `Error during stream!`);
+				if (!res.raw.writableEnded) {
+					res.raw.write(
+						encodeData(JSON.stringify(e)),
+					);
+				}
+			} finally {
+				if (!res.raw.writableEnded) {
+					res.raw.end();
+				}
 			}
-
-			res.raw.end();
 		} else {
 			const response = await modelProvider.doRequest(
 				requestBody,
-				{ logger: req.log, signal: controller.signal },
+				ctx,
 			);
-			res.status(200);
-			res.header("Content-Type", "application/json");
-			res.send(response);
+
+			res.status(200)
+				.header("Content-Type", "application/json")
+				.send(response);
 		}
 	});
 

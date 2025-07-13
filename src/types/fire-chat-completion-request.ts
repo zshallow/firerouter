@@ -51,6 +51,7 @@ const FireChatCompletionRequestSchema = z.object({
 	model: z.string(),
 	logit_bias: z.map(z.string(), z.number()).optional(),
 	logprobs: z.boolean().optional(),
+	max_tokens: z.int().optional(),
 	max_completion_tokens: z.int().optional(),
 	seed: z.number().optional(),
 	stop: z.union([z.string(), z.array(z.string())]).optional(),

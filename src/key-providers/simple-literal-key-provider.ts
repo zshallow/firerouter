@@ -8,7 +8,7 @@ export class SimpleLiteralKeyProvider implements KeyProvider {
 		this.key = config.key;
 	}
 
-	provide(): string {
-		return this.key;
+	withKey<T>(sgn: AbortSignal, func: (key: string) => T): T {
+		return func(this.key);
 	}
 }

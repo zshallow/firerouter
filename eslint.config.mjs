@@ -5,7 +5,9 @@ import prettierConfig from "eslint-config-prettier";
 import prettierPlugin from "eslint-plugin-prettier";
 
 export default tseslint.config(
-	js.configs.recommended,
+	{
+		...js.configs.recommended,
+	},
 
 	...tseslint.configs.strictTypeChecked,
 
@@ -34,4 +36,9 @@ export default tseslint.config(
 			"prettier/prettier": ["error", {}],
 		},
 	},
+	{
+		rules: {
+			"@typescript-eslint/no-this-alias": "off",
+		}
+	}
 );

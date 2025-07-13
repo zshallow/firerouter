@@ -1,7 +1,7 @@
 export type FireChatCompletionStreamingResponse =
 	AsyncIterable<FireChatCompletionChunk>;
 
-type FireChatCompletionChunk = {
+export type FireChatCompletionChunk = {
 	id?: string;
 	model?: string;
 	object: "chat.completion.chunk";

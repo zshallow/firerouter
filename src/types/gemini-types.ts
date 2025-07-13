@@ -57,6 +57,8 @@ export const GeminiResponseSchema = z.looseObject({
 	candidates: z.array(GeminiResponseCandidateSchema),
 });
 
+export type GeminiResponse = z.infer<typeof GeminiResponseSchema>;
+
 const GeminiStreamingResponsePartSchema = z.looseObject({
 	text: z.string(),
 });
@@ -75,3 +77,7 @@ export const GeminiStreamingResponseChunkSchema = z.looseObject({
 	modelVersion: z.string(),
 	responseId: z.string(),
 });
+
+export type GeminiStreamingResponseChunk = z.infer<
+	typeof GeminiStreamingResponseChunkSchema
+>;

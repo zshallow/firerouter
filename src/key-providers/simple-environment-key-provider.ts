@@ -15,7 +15,7 @@ export class SimpleEnvironmentKeyProvider implements KeyProvider {
 		this.key = key;
 	}
 
-	provide(): string {
-		return this.key;
+	withKey<T>(sgn: AbortSignal, func: (key: string) => T): T {
+		return func(this.key);
 	}
 }

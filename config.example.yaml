@@ -1,7 +1,7 @@
 port: 3000
 
 # Configure ProcessorChains to alter requests
-processorChains:
+processors:
   simpleChain:
     # Converts every system message to user role
     - type: "nosys"
@@ -21,35 +21,50 @@ keyProviders:
   yourORKey:
     type: "literal"
     key: "sk-or-made-up-key"
-    modelTargets:
-      - ".*" # matches all model names
   yourOtherORKey:
     type: "environment"
     envVar: "MY_OTHER_OR_KEY"
-    modelTargets:
-      - "regex that will match NOTHING lol"
 
 modelProviders:
-  # This exposes a model named "gpt-4.1" in your client
-  gpt-4.1:
-    type: "openrouter" # OpenRouter model
-    modelName: "openai/gpt-4.1" # Its model name on OpenRouter
-  # This exposes a model named "gpt-4.1-two" in your client. It's the same as 4.1, but two.
-  gpt-4.1-two:
-    type: "openrouter" # OpenRouter model
-    modelName: "openai/gpt-4.1" # Its model name on OpenRouter
-  qwen-3-32b:
-    type: "genericoai" # Anything that largely resembles OAI
-    url: "http://localhost:8000/v1/chat/completions" # e.g. your local llamacpp server. You NEED to still give him a fake made up key (or he'll cry)
-    modelName: "qwen/qwen3-32b-q8-gguf-something-something"
-    processorChain: simpleChain
+  openrouter:
+    type: "genericoai"
+    url: "https://openrouter.ai/api/v1"
+    keyProvider: yourORKey
+    models:
+      # This exposes a model named "gpt-4.1" in your client
+      gpt-4.1:
+        type: "openrouter" # OpenRouter model
+        name: "openai/gpt-4.1" # Its model name on OpenRouter
+      # This exposes a model named "gpt-4.1-two" in your client. It's the same as 4.1, but two.
+      gpt-4.1-two:
+        type: "openrouter" # OpenRouter model
+        name: "openai/gpt-4.1" # Its model name on OpenRouter
+
+  llamacpp:
+    type: "genericoai"
+    url: "http://localhost:8000/v1"
+    keyProvider:  # You NEED to still give him a fake made up key (or he'll cry)
+      type: "literal"
+      key: "sk-i-made-it-up"
+    models:
+      qwen-3-32b:
+        name: "qwen/qwen3-32b-q8-gguf-something-something"
+        processor: simpleChain
+
   random:
     type: "random" # Randomly chooses between the other models you have configured!
+    keyProvider:  # EVEN IF HE'S A random PROVIDER YOU GIVE HIM THE MADE UP KEY
+      type: "literal"
+      key: "sk-i-made-it-up"
     modelList:
-      - gpt-4.1
-      - qwen-3-32b
+      - openrouter/gpt-4.1
+      - llamacpp/qwen-3-32b
+
   random-2:
     type: "random"
+    keyProvider:
+      type: "literal"
+      key: "sk-i-made-it-up"
     modelWeights: # 5/21 requests go to gpt-4.1 as configured above, 16/21 goes to qwen-3-32b.
-      "gpt-4.1": 5
-      "qwen-3-32b": 16 # You can use floats and your weights don't have to sum to anything. Just non-zero + positive.
+      "openrouter/gpt-4.1": 5
+      "llamacpp/qwen-3-32b": 16 # You can use floats and your weights don't have to sum to anything. Just non-zero + positive.
