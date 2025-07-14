@@ -206,11 +206,13 @@ or other compatible services.
 
 **`type: "genericoai"`**
 
-| Property     | Type                                  | Default                     | Description                            |
-|--------------|---------------------------------------|-----------------------------|----------------------------------------|
-| `type`       | `string`                              | (Required)                  | Must be `"genericoai"`.                |
-| `url`        | `string`                              | `https://api.openai.com/v1` | The API URL up to /v1                  |
-| `models`     | `Map<string, ModelConfiguration>`     | (Required)                  | The models to load under this provider. |
+| Property             | Type                              | Default                     | Description                                        |
+|----------------------|-----------------------------------|-----------------------------|----------------------------------------------------|
+| `type`               | `string`                          | (Required)                  | Must be `"genericoai"`.                            |
+| `url`                | `string`                          | `https://api.openai.com/v1` | The API URL up to /v1                              |
+| `models`             | `Map<string, ModelConfiguration>` | (Required)                  | The models to load under this provider.            |
+| `addMistralPrefix`   | `boolean`                         | False                       | Adds the mistral `prefix` field to your prefill.   |
+| `addMoonshotPartial` | `boolean`                         | False                       | Adds the moonshot `partial` field to your prefill. |
 
 
 ### Gemini Provider

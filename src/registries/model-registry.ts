@@ -69,6 +69,8 @@ class ModelRegistry {
 					processor,
 					url,
 					modelConf.name,
+					conf.useMistralPrefix,
+					conf.useMoonshotPartial,
 				),
 			);
 		}

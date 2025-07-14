@@ -6,9 +6,9 @@ import { KeyProvider } from "../interfaces/key-provider.js";
 import { FireChatCompletionStreamingResponse } from "../types/fire-chat-completion-streaming-response.js";
 import { RequestContext } from "../types/request-context.js";
 import {
-	GenericOAIRequest,
+	GenericOAIRequest, GenericOAIRequestMessage,
 	GenericOAIResponseSchema,
-	GenericOAIStreamingResponseChunkSchema,
+	GenericOAIStreamingResponseChunkSchema
 } from "../types/oai-types.js";
 import { Processor } from "../interfaces/processor";
 import YAML from "yaml";
@@ -18,12 +18,16 @@ export class GenericOAIModel implements Model {
 	processor: Processor | undefined;
 	modelName: string;
 	url: string;
+	useMistralPrefix: boolean
+	useMoonshotPartial: boolean
 
 	constructor(
 		keyProvider: KeyProvider,
 		processor: Processor | undefined,
 		url: string,
 		modelName: string,
+		useMistralPrefix: boolean,
+		useMoonshotPartial: boolean,
 	) {
 		console.log("Initializing a new GenericOAI model provider!");
 
@@ -31,11 +35,22 @@ export class GenericOAIModel implements Model {
 		this.processor = processor;
 		this.url = url;
 		this.modelName = modelName;
+		this.useMistralPrefix = useMistralPrefix
+		this.useMoonshotPartial = useMoonshotPartial
 	}
 
 	private convertRequestBody(
 		req: FireChatCompletionRequest,
 	): GenericOAIRequest {
+		const lastMessage: GenericOAIRequestMessage = req.messages[req.messages.length - 1]
+		if (lastMessage.role === "assistant" && this.useMistralPrefix) {
+			lastMessage.prefix = true;
+		}
+
+		if (lastMessage.role === "assistant" && this.useMoonshotPartial) {
+			lastMessage.partial = true;
+		}
+
 		return {
 			model: this.modelName,
 			messages: req.messages,

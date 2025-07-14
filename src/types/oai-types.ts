@@ -9,9 +9,11 @@ type GenericOAIRequestContentTextPart = {
 };
 type GenericOAIRequestContentPart = GenericOAIRequestContentTextPart;
 type GenericOAIRequestContent = string | GenericOAIRequestContentPart[];
-type GenericOAIRequestMessage = {
+export type GenericOAIRequestMessage = {
 	role: "system" | "developer" | "user" | "assistant" | "tool";
 	content: GenericOAIRequestContent;
+	prefix?: true
+	partial?: true
 };
 export type GenericOAIRequest = {
 	model: string;

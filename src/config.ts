@@ -215,6 +215,8 @@ const GenericOAIModelProviderConfigurationSchema =
 		type: z.literal("genericoai"),
 		models: coercedMap(z.string(), ModelConfigurationSchema),
 		url: z.string().default("https://api.openai.com/v1"),
+		useMoonshotPartial: z.boolean().default(false),
+		useMistralPrefix: z.boolean().default(false),
 	});
 
 export type GenericOAIModelProviderConfiguration = z.infer<
