@@ -239,6 +239,21 @@ export type GeminiModelProviderConfiguration = z.infer<
 	typeof GeminiModelProviderConfigurationSchema
 >;
 
+//TextComp
+const TextCompModelProviderConfigurationSchema =
+	BaseModelProviderConfigurationSchema.extend({
+		type: z.literal("textcomp"),
+		models: coercedMap(z.string(), ModelConfigurationSchema),
+		url: z.string(),
+		template: z.string(),
+		processOutputWhitespace: z.boolean().default(false),
+		extraStopStrings: z.string().array().default([]),
+	});
+
+export type TextCompModelProviderConfiguration = z.infer<
+	typeof TextCompModelProviderConfigurationSchema
+>;
+
 const RandomModelProviderConfigurationSchema =
 	BaseModelProviderConfigurationSchema.extend({
 		type: z.literal("random"),
@@ -281,6 +296,7 @@ const ModelProviderConfigurationSchema = z.discriminatedUnion("type", [
 	GenericOAIModelProviderConfigurationSchema,
 	RandomModelProviderConfigurationSchema,
 	GeminiModelProviderConfigurationSchema,
+	TextCompModelProviderConfigurationSchema,
 ]);
 
 export type ModelProviderConfiguration = z.infer<

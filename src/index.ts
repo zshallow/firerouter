@@ -13,9 +13,11 @@ import { splitChunks } from "./utils/split-chunks.js";
 
 async function main() {
 	const configFilePath = new URL("../config.yaml", import.meta.url);
+
 	const configFile = await fs.readFile(configFilePath, {
 		encoding: "utf-8",
 	});
+
 	const config = ConfigSchema.parse(YAML.parse(configFile));
 
 	for (const [name, processorConfig] of config.processors) {

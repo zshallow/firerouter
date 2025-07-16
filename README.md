@@ -214,7 +214,6 @@ or other compatible services.
 | `addMistralPrefix`   | `boolean`                         | False                       | Adds the mistral `prefix` field to your prefill.   |
 | `addMoonshotPartial` | `boolean`                         | False                       | Adds the moonshot `partial` field to your prefill. |
 
-
 ### Gemini Provider
 
 A dedicated provider for connecting to Google's Gemini models.
@@ -226,6 +225,81 @@ A dedicated provider for connecting to Google's Gemini models.
 | `type`      | `string` | (Required)                                                 | Must be `"gemini"`.                                       |
 | `url`       | `string` | `https://generativelanguage.googleapis.com/v1beta/models`  | The base URL for the Gemini API.                          |
 | `models` | `Map<string, ModelConfiguration>` | (Required)                                   | The models to load under this provider. |
+
+### TextComp Provider
+
+Use this for any service that exposes an OpenAI-like API
+that omits the `messages` field in favor of a `prompt` string.
+
+Like OpenRouter.
+
+**`type: "textcomp"`**
+
+| Property                  | Type                              | Default                     | Description                                                                          |
+|---------------------------|-----------------------------------|-----------------------------|--------------------------------------------------------------------------------------|
+| `type`                    | `string`                          | (Required)                  | Must be `"textcomp"`.                                                                |
+| `url`                     | `string`                          | `https://api.openai.com/v1` | The API URL up to /v1                                                                |
+| `models`                  | `Map<string, ModelConfiguration>` | (Required)                  | The models to load under this provider.                                              |
+| `template`                | `string`                          | (Required)                  | Handlebars template for turning the OAI message array into a text completion prompt. |
+| `processOutputWhitespace` | `boolean`                         | False                       | Applies the Whitespace Processor to the prompt after compilation.                    |
+
+The template has access to the complete [request object](https://github.com/zshallow/firerouter/blob/main/src/types/fire-chat-completion-request.ts)
+
+Here's a quick example of a TextCompProvider configuration:
+
+```yaml
+modelProviders:
+  or-text:
+    type: "textcomp"
+    url: "https://openrouter.ai/api/v1"
+    keyProvider: "myORKey"
+    template: "
+      [SYSTEM]
+
+      You are the ever-reliable NARRATOR, writing an interactive
+      narrative with input from the USER. Your job is to handle
+      the part of {{char}} and any incidental characters.
+      USER will handle {{user}}, so don't step on their toes.
+
+      [/SYSTEM]
+
+      {{messages[0].content}}{{! just the sysprompt left here after squashing }}
+
+      [STORY START]
+
+      USER: Please start us off with a nice opening to set the tone
+      and style.
+      {% for message in messages.slice(1) %}
+
+
+      {% if message.role == 'user' %}
+      USER: {{message.content}}
+      {% else %}
+      NARRATION: {{message.content}}
+      {% endif %}
+      {% endfor %}
+
+
+      NARRATION:"
+    processOutputWhitespace: true
+    extraStopStrings: [ "USER:" ]
+    models:
+      kimi-k2:
+        name: "moonshotai/kimi-k2"
+        processor:
+          - type: "nodanglingsys"
+          - type: "squash"
+```
+
+Deciding what to keep in your card/preset and what
+to place in the prompt template is left to you.
+
+Consider using squash and trusting `processOutputWhitespace`
+to unmangle your prompts.
+
+Also, look up https://yaml-multiline.info/ to remember YAML's
+behavior with multiline strings.
+
 
 ### Random Model Provider
 

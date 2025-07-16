@@ -3,6 +3,7 @@ import {
 	GenericOAIModelProviderConfiguration,
 	ModelProviderConfiguration,
 	RandomModelProviderConfiguration,
+	TextCompModelProviderConfiguration,
 	TrivialModelProviderConfiguration,
 } from "../config.js";
 import { TrivialModel } from "../models/trivial-model.js";
@@ -12,6 +13,8 @@ import { Model } from "../interfaces/model.js";
 import { GeminiModel } from "../models/gemini-model.js";
 import { processorRegistry } from "./processor-registry.js";
 import { keyProviderRegistry } from "./key-provider-registry.js";
+import nunjucks from "nunjucks";
+import { TextCompModel } from "../models/textcomp-model.js";
 
 class ModelRegistry {
 	public models: Map<string, Model>;
@@ -123,6 +126,62 @@ class ModelRegistry {
 		}
 	}
 
+	private registerTextCompModels(
+		name: string,
+		conf: TextCompModelProviderConfiguration,
+	): void {
+		let url = conf.url;
+		// Ensure the URL doesn't end in a /
+		if (url.endsWith("/")) {
+			url = url.substring(0, url.length - 1);
+		}
+
+		// If it ends with /v1, we append just /chat/completions
+		if (!url.endsWith("/v1")) {
+			url += "/v1";
+		}
+
+		const keyProvider = keyProviderRegistry.getKeyProvider(
+			conf.keyProvider,
+		);
+
+		const compiledTemplate = nunjucks.compile(
+			conf.template,
+			nunjucks.configure({
+				autoescape: false,
+			}),
+		);
+
+		for (const [modelName, modelConf] of conf.models) {
+			let processor = undefined;
+			if (modelConf.processor) {
+				processor = processorRegistry.getProcessor(
+					modelConf.processor,
+				);
+			}
+
+			const modelId = `${name}/${modelName}`;
+			if (this.models.has(modelId)) {
+				throw new Error(
+					`Name collision with ${modelId}!`,
+				);
+			}
+
+			this.models.set(
+				modelId,
+				new TextCompModel(
+					keyProvider,
+					processor,
+					url,
+					modelConf.name,
+					compiledTemplate,
+					conf.extraStopStrings,
+					conf.processOutputWhitespace,
+				),
+			);
+		}
+	}
+
 	private registerRandomModel(
 		name: string,
 		conf: RandomModelProviderConfiguration,
@@ -145,6 +204,10 @@ class ModelRegistry {
 			}
 			case "gemini": {
 				this.registerGeminiModels(name, conf);
+				break;
+			}
+			case "textcomp": {
+				this.registerTextCompModels(name, conf);
 				break;
 			}
 			case "random": {

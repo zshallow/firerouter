@@ -1,70 +1,76 @@
-import { Model } from "../interfaces/model";
-import { FireChatCompletionRequest } from "../types/fire-chat-completion-request.js";
-import { FireChatCompletionResponse } from "../types/fire-chat-completion-response.js";
-import { EventSourceParserStream } from "eventsource-parser/stream";
+import { Model } from "../interfaces/model.js";
 import { KeyProvider } from "../interfaces/key-provider.js";
-import { FireChatCompletionStreamingResponse } from "../types/fire-chat-completion-streaming-response.js";
-import { RequestContext } from "../types/request-context.js";
+import { Processor } from "../interfaces/processor.js";
+import nunjucks from "nunjucks";
+import { FireChatCompletionRequest } from "../types/fire-chat-completion-request.js";
 import {
-	GenericOAIRequest,
-	GenericOAIRequestMessage,
-	GenericOAIResponseSchema,
-	GenericOAIStreamingResponseChunkSchema,
-} from "../types/oai-types.js";
-import { Processor } from "../interfaces/processor";
+	TextCompRequest,
+	TextCompResponseSchema,
+	TextCompStreamingResponseChunkSchema,
+} from "../types/textcomp-types.js";
+import { RequestContext } from "../types/request-context.js";
+import { FireChatCompletionResponse } from "../types/fire-chat-completion-response.js";
 import YAML from "yaml";
+import { FireChatCompletionStreamingResponse } from "../types/fire-chat-completion-streaming-response.js";
+import { EventSourceParserStream } from "eventsource-parser/stream";
+import { cleanWhitespace } from "../utils/clean-whitespace.js";
 
-export class GenericOAIModel implements Model {
+export class TextCompModel implements Model {
 	keyProvider: KeyProvider;
 	processor: Processor | undefined;
 	modelName: string;
 	url: string;
-	useMistralPrefix: boolean;
-	useMoonshotPartial: boolean;
+	template: nunjucks.Template;
+	extraStopStrings: string[];
+	processOutputWhitespace: boolean;
 
 	constructor(
 		keyProvider: KeyProvider,
 		processor: Processor | undefined,
 		url: string,
 		modelName: string,
-		useMistralPrefix: boolean,
-		useMoonshotPartial: boolean,
+		template: nunjucks.Template,
+		extraStopStrings: string[],
+		processOutputWhitespace: boolean,
 	) {
-		console.log("Initializing a new GenericOAI model provider!");
+		console.log("Initializing a new text comp model provider!");
 
 		this.keyProvider = keyProvider;
 		this.processor = processor;
 		this.url = url;
 		this.modelName = modelName;
-		this.useMistralPrefix = useMistralPrefix;
-		this.useMoonshotPartial = useMoonshotPartial;
+		this.extraStopStrings = extraStopStrings;
+		this.processOutputWhitespace = processOutputWhitespace;
+
+		this.template = template;
 	}
 
 	private convertRequestBody(
 		req: FireChatCompletionRequest,
-	): GenericOAIRequest {
-		const lastMessage: GenericOAIRequestMessage =
-			req.messages[req.messages.length - 1];
-		if (lastMessage.role === "assistant" && this.useMistralPrefix) {
-			lastMessage.prefix = true;
+	): TextCompRequest {
+		const reqStopStrings = [];
+		if (typeof req.stop === "string") {
+			reqStopStrings.push(req.stop);
+		} else if (Array.isArray(req.stop)) {
+			reqStopStrings.push(...req.stop);
 		}
 
-		if (
-			lastMessage.role === "assistant" &&
-			this.useMoonshotPartial
-		) {
-			lastMessage.partial = true;
+		reqStopStrings.push(...this.extraStopStrings);
+
+		let prompt = this.template.render(req);
+		if (this.processOutputWhitespace) {
+			prompt = cleanWhitespace(prompt);
 		}
 
 		return {
 			model: this.modelName,
-			messages: req.messages,
+			prompt: prompt,
 			stream: req.stream || false,
 			max_tokens: req.max_tokens ?? req.max_completion_tokens,
 			max_completion_tokens:
 				req.max_completion_tokens ?? req.max_tokens,
 			seed: req.seed,
-			stop: req.stop,
+			stop: reqStopStrings,
 			temperature: req.temperature,
 			top_p: req.top_p,
 			top_k: req.top_k,
@@ -82,9 +88,11 @@ export class GenericOAIModel implements Model {
 	): Promise<FireChatCompletionResponse> {
 		if (this.processor !== undefined) {
 			req = this.processor.process(req);
-			console.debug("Processed request body!");
-			console.debug(YAML.stringify(req));
 		}
+
+		const convertedRequestBody = this.convertRequestBody(req);
+		console.debug("Converted request body for text comp request!");
+		console.debug(YAML.stringify(convertedRequestBody));
 
 		return this.keyProvider.withKey(
 			ctx.signal,
@@ -92,7 +100,7 @@ export class GenericOAIModel implements Model {
 				key: string,
 			): Promise<FireChatCompletionResponse> => {
 				const response = await fetch(
-					`${this.url}/chat/completions`,
+					`${this.url}/completions`,
 					{
 						method: "POST",
 						headers: {
@@ -101,9 +109,7 @@ export class GenericOAIModel implements Model {
 							Authorization: `Bearer ${key}`,
 						},
 						body: JSON.stringify(
-							this.convertRequestBody(
-								req,
-							),
+							convertedRequestBody,
 						),
 						signal: ctx.signal,
 					},
@@ -111,17 +117,17 @@ export class GenericOAIModel implements Model {
 
 				if (!response.ok) {
 					ctx.logger.error(
-						`OAI response status: ${response.statusText}`,
+						`Text comp response status: ${response.statusText}`,
 					);
 					ctx.logger.error(
-						`OAI response body: ${await response.text()}`,
+						`Text comp response body: ${await response.text()}`,
 					);
 					throw new Error(
 						"Error performing request!",
 					);
 				}
 
-				return GenericOAIResponseSchema.parse(
+				return TextCompResponseSchema.parse(
 					await response.json(),
 				);
 			},
@@ -134,9 +140,11 @@ export class GenericOAIModel implements Model {
 	): FireChatCompletionStreamingResponse {
 		if (this.processor !== undefined) {
 			req = this.processor.process(req);
-			console.debug("Processed request body!");
-			console.debug(YAML.stringify(req));
 		}
+
+		const convertedRequestBody = this.convertRequestBody(req);
+		console.debug("Converted request body for text comp request!");
+		console.debug(YAML.stringify(convertedRequestBody));
 
 		const _this = this;
 		return this.keyProvider.withKey(
@@ -145,7 +153,7 @@ export class GenericOAIModel implements Model {
 				key: string,
 			): FireChatCompletionStreamingResponse {
 				const response = await fetch(
-					`${_this.url}/chat/completions`,
+					`${_this.url}/completions`,
 					{
 						method: "POST",
 						headers: {
@@ -154,9 +162,7 @@ export class GenericOAIModel implements Model {
 							Authorization: `Bearer ${key}`,
 						},
 						body: JSON.stringify(
-							_this.convertRequestBody(
-								req,
-							),
+							convertedRequestBody,
 						),
 						signal: ctx.signal,
 					},
@@ -164,10 +170,10 @@ export class GenericOAIModel implements Model {
 
 				if (!response.ok || !response.body) {
 					ctx.logger.error(
-						`GenericOAI response status: ${response.statusText}`,
+						`Text comp response status: ${response.statusText}`,
 					);
 					ctx.logger.error(
-						`GenericOAI response body: ${await response.text()}`,
+						`Text comp response body: ${await response.text()}`,
 					);
 					throw new Error(
 						"Error performing request!",
@@ -189,7 +195,7 @@ export class GenericOAIModel implements Model {
 						event.data,
 					);
 					const chunkParse =
-						GenericOAIStreamingResponseChunkSchema.safeParse(
+						TextCompStreamingResponseChunkSchema.safeParse(
 							data,
 						);
 					if (!chunkParse.success) {
@@ -200,7 +206,27 @@ export class GenericOAIModel implements Model {
 					}
 
 					const chunk = chunkParse.data;
-					yield chunk;
+					if (
+						chunk.choices === undefined ||
+						chunk.choices.length === 0
+					) {
+						continue;
+					}
+
+					yield {
+						object: "chat.completion.chunk",
+						choices: chunk.choices.map(
+							(choice) => {
+								return {
+									index: 0,
+									delta: {
+										role: "assistant",
+										content: choice.text,
+									},
+								};
+							},
+						),
+					};
 				}
 			},
 		);

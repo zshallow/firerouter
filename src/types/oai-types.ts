@@ -12,8 +12,8 @@ type GenericOAIRequestContent = string | GenericOAIRequestContentPart[];
 export type GenericOAIRequestMessage = {
 	role: "system" | "developer" | "user" | "assistant" | "tool";
 	content: GenericOAIRequestContent;
-	prefix?: true
-	partial?: true
+	prefix?: true;
+	partial?: true;
 };
 export type GenericOAIRequest = {
 	model: string;
@@ -22,6 +22,7 @@ export type GenericOAIRequest = {
 	max_tokens?: number;
 	max_completion_tokens?: number;
 	seed?: number;
+	stop?: string | string[];
 
 	temperature?: number;
 	top_p?: number;
