@@ -240,7 +240,7 @@ Like OpenRouter.
 | `type`                    | `string`                          | (Required)                  | Must be `"textcomp"`.                                                                |
 | `url`                     | `string`                          | `https://api.openai.com/v1` | The API URL up to /v1                                                                |
 | `models`                  | `Map<string, ModelConfiguration>` | (Required)                  | The models to load under this provider.                                              |
-| `template`                | `string`                          | (Required)                  | Handlebars template for turning the OAI message array into a text completion prompt. |
+| `template`                | `string`                          | (Required)                  | Nunjucks template for turning the OAI message array into a text completion prompt.   |
 | `processOutputWhitespace` | `boolean`                         | False                       | Applies the Whitespace Processor to the prompt after compilation.                    |
 
 The template has access to the complete [request object](https://github.com/zshallow/firerouter/blob/main/src/types/fire-chat-completion-request.ts)
