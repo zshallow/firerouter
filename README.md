@@ -254,16 +254,7 @@ modelProviders:
     url: "https://openrouter.ai/api/v1"
     keyProvider: "myORKey"
     template: "
-      [SYSTEM]
-
-      You are the ever-reliable NARRATOR, writing an interactive
-      narrative with input from the USER. Your job is to handle
-      the part of {{char}} and any incidental characters.
-      USER will handle {{user}}, so don't step on their toes.
-
-      [/SYSTEM]
-
-      {{messages[0].content}}{{! just the sysprompt left here after squashing }}
+      {{messages[0].content}}{{! the raw sysprompt left here after squashing }}
 
       [STORY START]
 
